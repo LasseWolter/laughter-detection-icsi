@@ -1,5 +1,7 @@
 '''
-REQUIREMENT: `chan_idx_map.pkl` file next to the data_frames in the dataframe folder
+REQUIREMENTS: 
+    1. `chan_idx_map.pkl` file next to the data_frames in the dataframe folder
+    2. .env file with configs (can be passed to main function) 
 
 This script creates feature representations for audio segments present in a given dataframe
 The dataframe must have the following columns: 
@@ -7,78 +9,30 @@ The dataframe must have the following columns:
 with the following meaning  
 [region start, region duration, subsampled region start, subsampled region duration, audio path, label]
 
-EXAMPLE USAGE: 
-python load_data.py --audio_dir data/icsi/speech/ --transcript_dir data/icsi/ --data_df_dir data/icsi/data_dfs/ --output_dir test_output --debug True
+EXAMPLE .env file: 
+    AUDIO_DIR=./data/icsi/speech
+    TRANSCRIPT_DIR=./data/icsi/
+    DATA_DFS_DIR=./data/icsi/data_dfs
+    OUTPUT_DIR=test_output
+    NUM_JOBS=8
+
+USAGE: python compute_features
 '''
-import argparse
 import torch
-from lhotse import CutSet, Fbank, FbankConfig, MonoCut
+from lhotse import CutSet, Fbank, FbankConfig, MonoCut, KaldifeatFbank, KaldifeatFbankConfig
+from lhotse.features.kaldifeat import KaldifeatMelOptions
 from lhotse.recipes import prepare_icsi
 from lhotse import SupervisionSegment, SupervisionSet, RecordingSet
 import pandas as pd
 import pickle
 import os
 import subprocess
-import argparse
+import dotenv
 
-parser = argparse.ArgumentParser()
-
-######## REQUIRED ARGS #########
-# Directory containing the audio_files from ICSI corpus
-parser.add_argument('--audio_dir', type=str, required=True)
-
-# Directory containing the ICSI transcripts
-parser.add_argument('--transcript_dir', type=str, required=True)
-
-# Directory which contains the dataframes describing the audio segments we want to create
-# features for
-parser.add_argument('--data_df_dir', type=str, required=True)
-
-# Directory which will contain the manifest,cutsets and features
-parser.add_argument('--output_dir', type=str, required=True)
-
-######## OPTIONAL ARGS #########
-# Set DEBUG variable to true, using dummy data instead of whole audio data
-# Will use the output folder set above an create a 'debug' folder inside it for the outputs
-parser.add_argument('--debug', type=bool, default=False)
-
-# Allows overwriting already stored manifests
-# E.g. when using different audio paths the manifest needs to be recreated
-parser.add_argument('--force_manifest_reload', type=bool, default=False)
-
-# Set batch size. Overrides batch_size set in the config object
-parser.add_argument('--force_feature_recompute', type=bool, default=False)
-
-# Number of processes for parallel processing on cpu.
-parser.add_argument('--num_jobs', type=int, default=8)
-
-args = parser.parse_args()
-
-DEBUG = args.debug
-FORCE_MANIFEST_RELOAD = args.force_manifest_reload
-# allows overwriting already computed features
-FORCE_FEATURE_RECOMPUTE = args.force_feature_recompute
-
-#SPLITS = ['train', 'dev', 'test']
-SPLITS = ['dev']
-
-# Initialise directories according to the passed arguments
-if DEBUG:
-    # output_dir: Directory which will contain manifest, cutset dumps and features
-    output_dir = os.path.join(args.output_dir, 'debug')
-    print('IN DEBUG MODE - loading small amount of data')
-else:
-    output_dir = args.output_dir
-
-data_df_dir = args.data_df_dir
-audio_dir = args.audio_dir
-transcripts_dir = args.transcript_dir
-manifest_dir = os.path.join(output_dir, 'manifests')
-feats_dir = os.path.join(output_dir, 'feats')
-cutset_dir = os.path.join(output_dir, 'cutsets')
+SPLITS = ['train', 'dev', 'test']
 
 
-def create_manifest(audio_dir, transcripts_dir, manifest_dir):
+def create_manifest(audio_dir, transcripts_dir, output_dir, force_manifest_reload=False):
     '''
     Create or load lhotse manifest for icsi dataset.  
     If it exists on disk, load it. Otherwise create it using the icsi_recipe
@@ -88,49 +42,45 @@ def create_manifest(audio_dir, transcripts_dir, manifest_dir):
     # the sampling rate, number of channels, duration, etc.
     # The SupervisionSet describes metadata about supervision segments:
     # the transcript, speaker, language, and so on.
-    if(os.path.isdir(manifest_dir) and not FORCE_MANIFEST_RELOAD):
+    if(os.path.isdir(output_dir) and not force_manifest_reload):
         print("LOADING MANIFEST DIR FROM DISK - not from raw icsi files")
-        icsi = {'train': {}, 'dev': {}, 'test': {}}
-        for split in ['train', 'dev', 'test']:
+        icsi = {}
+        for split in SPLITS:
+            icsi[split] = {}
             rec_set = RecordingSet.from_jsonl(os.path.join(
-                manifest_dir, f'recordings_{split}.jsonl'))
+                output_dir, f'recordings_{split}.jsonl'))
             sup_set = SupervisionSet.from_jsonl(os.path.join(
-                manifest_dir, f'supervisions_{split}.jsonl'))
+                output_dir, f'supervisions_{split}.jsonl'))
             icsi[split]['recordings'] = rec_set
             icsi[split]['supervisions'] = sup_set
     else:
         icsi = prepare_icsi(
-            audio_dir=audio_dir, transcripts_dir=transcripts_dir, output_dir=manifest_dir)
+            audio_dir=audio_dir, transcripts_dir=transcripts_dir, output_dir=output_dir)
 
     return icsi
 
 
-def compute_features():
-    # Create directory for storing lhotse cutsets
-    # Manifest dir is automatically created by lhotse's icsi recipe if it doesn't exist
-    subprocess.run(['mkdir', '-p', cutset_dir])
+def compute_features(icsi_manifest, data_dfs_dir, output_dir, num_jobs=8, use_kaldi=False, force_feature_recompute=False):
 
-    icsi = create_manifest(audio_dir, transcripts_dir, manifest_dir)
+    feats_dir = os.path.join(output_dir, 'feats')
+    cutset_dir = os.path.join(output_dir, 'cutsets')
+    # Create directory for storing lhotse cutsets
+    # Feats dir is automatically created by lhotse
+    subprocess.run(['mkdir', '-p', cutset_dir])
 
     # Load the channel to id mapping from disk
     # If this changed at some point (which it shouldn't) this file would have to
     # be recreated
     # TODO: find a cleaner way to implement this
-    chan_map_file = open(os.path.join(data_df_dir, 'chan_idx_map.pkl'), 'rb')
+    chan_map_file = open(os.path.join(data_dfs_dir, 'chan_idx_map.pkl'), 'rb')
     chan_idx_map = pickle.load(chan_map_file)
 
     # Read data_dfs containing the samples for train,val,test split
     dfs = {}
-    if DEBUG:
-        # Dummy data is in the train split
-        dfs['train'] = pd.read_csv(os.path.join(
-            data_df_dir, f'dummy_df.csv'))
-    else:
-        for split in SPLITS:
-            dfs[split] = pd.read_csv(os.path.join(
-                data_df_dir, f'{split}_df.csv'))
+    for split in SPLITS:
+        dfs[split] = pd.read_csv(os.path.join(
+            data_dfs_dir, f'{split}_df.csv'))
 
-    # CutSet is the workhorse of Lhotse, allowing for flexible data manipulation.
     # We use the existing dataframe to create a corresponding cut for each row
     # Supervisions stating laugh/non-laugh are attached to each cut
     # No audio data is actually loaded into memory or stored to disk at this point.
@@ -144,12 +94,7 @@ def compute_features():
             meeting_id = row.audio_path.split('/')[0]
             channel = row.audio_path.split('/')[1].split('.')[0]
             chan_id = chan_idx_map[meeting_id][channel]
-            if DEBUG:
-                # The meeting used in dummy_df is in the train-split
-                rec = icsi['train']['recordings'][meeting_id]
-            else:
-                # In the icsi recipe the validation split is called 'dev' split
-                rec = icsi[split]['recordings'][meeting_id]
+            rec = icsi_manifest[split]['recordings'][meeting_id]
             # Create supervision segment indicating laughter or non-laughter by passing a
             # dict to the custom field -> {'is_laugh': 0/1}
             # TODO: change duration from hardcoded to a value from a config file
@@ -159,7 +104,7 @@ def compute_features():
             # Pad cut-subsample to a minimum of 1s
             # Do this because there are laugh segments that are shorter than 1s
             cut = MonoCut(id=f'{split}_{ind}', start=row.sub_start, duration=row.sub_duration,
-                          recording=rec, channel=chan_id, supervisions=[sup])
+                          recording=rec, channel=chan_id, supervisions=[sup]).pad(duration=1.0)
             cut_list.append(cut)
 
         cutset_dict[split] = CutSet.from_cuts(cut_list)
@@ -172,7 +117,11 @@ def compute_features():
         print(f'Computing features for {split}...')
         # Choose frame_shift value to match the hop_length of Gillick et al
         # 0.2275 = 16 000 / 364 -> [frame_rate / hop_length]
-        f2 = Fbank(FbankConfig(num_filters=128, frame_shift=0.02275))
+        fbank_conf = Fbank(FbankConfig(num_filters=128, frame_shift=0.02275))
+
+        if (use_kaldi):
+            fbank_conf = KaldifeatFbank(KaldifeatFbankConfig(
+                mel_opts=KaldifeatMelOptions(num_bins=128)))
 
         torch.set_num_threads(1)
 
@@ -181,20 +130,44 @@ def compute_features():
             cutset_dir, f'{split}_cutset_with_feats.jsonl')
 
         # If file already exist, load it from disk
-        if(os.path.isfile(cuts_with_feats_file) and not FORCE_FEATURE_RECOMPUTE):
+        if(os.path.isfile(cuts_with_feats_file) and not force_feature_recompute):
             print("LOADING FEATURES FROM DISK - NOT RECOMPUTING")
             cuts = CutSet.from_jsonl(f'{split}_cutset_with_feats.jsonl')
         else:
-            cuts = cutset.compute_and_store_features(
-                extractor=f2,
-                storage_path=feats_dir,
-                num_jobs=args.num_jobs
-            )
+            if (use_kaldi):
+                cuts = cutset.compute_and_store_features_batch(
+                    extractor=fbank_conf,
+                    storage_path=feats_dir,
+                    num_jobs=num_jobs
+                )
+            else:
+                cuts = cutset.compute_and_store_features(
+                    extractor=fbank_conf,
+                    storage_path=feats_dir,
+                    num_jobs=num_jobs
+                )
             # Shuffle cutset for better training. In the data_dfs the rows aren't shuffled.
             # At the top are all speech rows and the bottom all laugh rows
             cuts = cuts.shuffle()
             cuts.to_jsonl(cuts_with_feats_file)
 
 
+def main(env_file='.env'):
+    ''' 
+    Creates manifest and computes features for configs specified in .env file passed to this function
+    '''
+    dotenv.load_dotenv(env_file)
+    audio_dir = os.getenv('AUDIO_DIR')
+    transcript_dir = os.getenv('TRANSCRIPT_DIR')
+    output_dir = os.getenv('OUTPUT_DIR')
+    data_dfs_dir = os.getenv('DATA_DFS_DIR')
+    num_jobs = int(os.getenv('NUM_JOBS'))
+    use_kaldi = os.getenv('USE_KALDI') == 'True'
+
+    icsi_manifest = create_manifest(audio_dir, transcript_dir, output_dir)
+    compute_features(icsi_manifest=icsi_manifest, data_dfs_dir=data_dfs_dir,
+                     output_dir=output_dir, num_jobs=num_jobs, use_kaldi=use_kaldi)
+
+
 if __name__ == "__main__":
-    compute_features()
+    main()
