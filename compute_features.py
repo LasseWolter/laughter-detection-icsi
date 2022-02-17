@@ -161,8 +161,8 @@ def main(env_file='.env'):
     transcript_dir = os.getenv('TRANSCRIPT_DIR')
     output_dir = os.getenv('OUTPUT_DIR')
     data_dfs_dir = os.getenv('DATA_DFS_DIR')
-    num_jobs = int(os.getenv('NUM_JOBS'))
-    use_kaldi = os.getenv('USE_KALDI') == 'True'
+    num_jobs = int(os.getenv('NUM_JOBS')) if os.getenv('NUM_JOBS') else 8
+    use_kaldi = os.getenv('USE_KALDI') == True if os.getenv('USE_KALDI') else False
 
     icsi_manifest = create_manifest(audio_dir, transcript_dir, output_dir)
     compute_features(icsi_manifest=icsi_manifest, data_dfs_dir=data_dfs_dir,
