@@ -1,11 +1,8 @@
 *.ipynb_checkpoints
 *__pycache__
 
-data/background_noise_files/
-data/background_music_files/
-
-
 data/*
+analysis/transcript_parsing/data/*
 
 # Vim configs
 **/.vim
@@ -23,6 +20,10 @@ Thesis/*.zip
 # .env files
 **/.env
 
+# Don't commit predictions or train_results
+# Train results are checkpoints and metrics data from different experiments
 predictions
 train_results
-analysis/transcript_parsing/data/*
+
+# Don't commit local training/model checkpoints
+checkpoints
