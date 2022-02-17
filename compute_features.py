@@ -120,6 +120,7 @@ def compute_features(icsi_manifest, data_dfs_dir, output_dir, num_jobs=8, use_ka
         fbank_conf = Fbank(FbankConfig(num_filters=128, frame_shift=0.02275))
 
         if (use_kaldi):
+            print('Using Kaldifeat-Extractor...')
             fbank_conf = KaldifeatFbank(KaldifeatFbankConfig(
                 mel_opts=KaldifeatMelOptions(num_bins=128)))
 
@@ -138,7 +139,7 @@ def compute_features(icsi_manifest, data_dfs_dir, output_dir, num_jobs=8, use_ka
                 cuts = cutset.compute_and_store_features_batch(
                     extractor=fbank_conf,
                     storage_path=feats_dir,
-                    num_jobs=num_jobs
+                    num_workers=num_jobs
                 )
             else:
                 cuts = cutset.compute_and_store_features(
@@ -162,7 +163,7 @@ def main(env_file='.env'):
     output_dir = os.getenv('OUTPUT_DIR')
     data_dfs_dir = os.getenv('DATA_DFS_DIR')
     num_jobs = int(os.getenv('NUM_JOBS')) if os.getenv('NUM_JOBS') else 8
-    use_kaldi = os.getenv('USE_KALDI') == True if os.getenv('USE_KALDI') else False
+    use_kaldi = os.getenv('USE_KALDI') == 'True' if os.getenv('USE_KALDI') else False
 
     icsi_manifest = create_manifest(audio_dir, transcript_dir, output_dir)
     compute_features(icsi_manifest=icsi_manifest, data_dfs_dir=data_dfs_dir,
