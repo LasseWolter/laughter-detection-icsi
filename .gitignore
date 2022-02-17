@@ -27,3 +27,6 @@ train_results
 
 # Don't commit local training/model checkpoints
 checkpoints
+
+# commitizen config
+*pyproject.toml
