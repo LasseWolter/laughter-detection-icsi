@@ -1,0 +1,2 @@
+//Segment[VocalSound[contains(@Description,'laugh')][preceding-sibling::text()[normalize-space()=''] and following-sibling::text()[normalize-space()='']] and count(./*) < 2]
+

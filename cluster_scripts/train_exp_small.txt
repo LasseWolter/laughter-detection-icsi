@@ -1,0 +1,1 @@
+python train.py --config resnet_base --checkpoint_dir /disk/scratch/s1660656/icsi/checkpoints/small --data_root /disk/scratch/s1660656/icsi/

@@ -1,0 +1,1 @@
+python train.py --config resnet_base --checkpoint_dir /disk/scratch/s1660656/icsi/checkpoints/bmr --data_root /disk/scratch/s1660656/icsi/ --data_dfs_dir bmr_data_dfs

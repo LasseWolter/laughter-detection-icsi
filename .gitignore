@@ -1,0 +1,28 @@
+*.ipynb_checkpoints
+*__pycache__
+
+data/background_noise_files/
+data/background_music_files/
+
+
+data/*
+
+# Vim configs
+**/.vim
+
+# cached dir
+**/.cache
+
+# Thesis pdf and zip
+Thesis/*.pdf
+Thesis/*.zip
+
+# vscode settings
+**/.vscode
+
+# .env files
+**/.env
+
+predictions
+train_results
+analysis/transcript_parsing/data/*
