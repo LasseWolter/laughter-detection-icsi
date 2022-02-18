@@ -13,11 +13,11 @@ def seg_invalid(row):
     '''
     This functions specifies what makes a segment invalid
     Input: row defining an audio segment with the following columns:
-        - ['meeting_id', 'part_id', 'chan', 'start', 'end', 'length', 'type']
+        - ['meeting_id', 'part_id', 'chan', 'start', 'end', 'length', 'type', 'laugh_type']
     '''
     # If the length is shorter than min_length passed to detection algorithm, mark invalid
     #   - empirically tested -> this doesn't apply to many segments
-    return (row['length'] < cfg.model["min_length"] or row['type'] == 'breath-laugh')
+    return (row['length'] < cfg.model["min_length"] or row['laugh_type'] == 'breath-laugh')
 
 
 def append_to_index(index, row, meeting_id, part_id):

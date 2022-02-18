@@ -48,7 +48,7 @@ def textgrid_to_df(file_path):
                                          params)
 
     cols = ['meeting_id', 'part_id', 'chan', 'start',
-            'end', 'length', 'threshold', 'type']
+            'end', 'length', 'threshold', 'laugh_type']
     df = pd.DataFrame(tot_list, columns=cols)
     return df
 
@@ -385,7 +385,7 @@ def laugh_df_to_csv(df):
     e.g. for generating .wav-files using
     ./output_processing/laughs_to_wav.py from this .csv
     """
-    df = df[df['type'] == 'breath-laugh']
+    df = df[df['laugh_type'] == 'breath-laugh']
     df.to_csv('breath_laugh.csv')
 
 
