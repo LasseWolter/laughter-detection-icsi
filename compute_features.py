@@ -60,7 +60,7 @@ def create_manifest(audio_dir, transcripts_dir, output_dir, force_manifest_reloa
     return icsi
 
 
-def compute_features(icsi_manifest, data_dfs_dir, output_dir, num_jobs=8, use_kaldi=False, force_feature_recompute=False):
+def compute_features(icsi_manifest, data_dfs_dir, output_dir, num_jobs=8, min_seg_duration=1.0, use_kaldi=False, force_feature_recompute=False):
 
     feats_dir = os.path.join(output_dir, 'feats')
     cutset_dir = os.path.join(output_dir, 'cutsets')
@@ -99,12 +99,13 @@ def compute_features(icsi_manifest, data_dfs_dir, output_dir, num_jobs=8, use_ka
             # dict to the custom field -> {'is_laugh': 0/1}
             # TODO: change duration from hardcoded to a value from a config file
             sup = SupervisionSegment(id=f'sup_{split}_{ind}', recording_id=rec.id, start=row.sub_start,
-                                     duration=1.0, channel=chan_id, custom={'is_laugh': row.label})
+                                     duration=min_seg_duration, channel=chan_id, custom={'is_laugh': row.label})
 
             # Pad cut-subsample to a minimum of 1s
             # Do this because there are laugh segments that are shorter than 1s
             cut = MonoCut(id=f'{split}_{ind}', start=row.sub_start, duration=row.sub_duration,
                           recording=rec, channel=chan_id, supervisions=[sup]).pad(duration=1.0)
+
             cut_list.append(cut)
 
         cutset_dict[split] = CutSet.from_cuts(cut_list)
@@ -147,12 +148,32 @@ def compute_features(icsi_manifest, data_dfs_dir, output_dir, num_jobs=8, use_ka
                     storage_path=feats_dir,
                     num_jobs=num_jobs
                 )
+
+            # If padding is added the returned cut is a MixedCut 
+            # When features are computed for this MixedCut a MonoCut with no recording attached  
+            # is returned (see: https://lhotse.readthedocs.io/en/latest/api.html#lhotse.cut.MixedCut.compute_and_store_features)
+            # This is an issue because a supervision_segment needs an id attached to it and  
+            # still has the recording_id from the original assignment
+            # Re-attach the correct recording and channel to such cuts
+            # Need to do the same thing for the features of such cuts 
+            # TODO: Find a better way of doing this
+            for i in range(0, len(cuts)):
+                if (not cuts[i].has_recording):
+                    # Get the recording_id from the supervision segment
+                    meeting_id = cuts[i].supervisions[0].recording_id 
+                    chan_id = cuts[i].supervisions[0].channel 
+                    rec = icsi_manifest['dev']['recordings'][meeting_id]
+                    cuts[i].recording = rec
+                    cuts[i].channel = chan_id
+                    cuts[i].features.recording_id = rec.id
+                    cuts[i].features.channels = chan_id
+
             # Shuffle cutset for better training. In the data_dfs the rows aren't shuffled.
             # At the top are all speech rows and the bottom all laugh rows
             cuts = cuts.shuffle()
             cuts.to_jsonl(cuts_with_feats_file)
-
-
+            
+        
 def main(env_file='.env'):
     ''' 
     Creates manifest and computes features for configs specified in .env file passed to this function
@@ -163,11 +184,16 @@ def main(env_file='.env'):
     output_dir = os.getenv('OUTPUT_DIR')
     data_dfs_dir = os.getenv('DATA_DFS_DIR')
     num_jobs = int(os.getenv('NUM_JOBS')) if os.getenv('NUM_JOBS') else 8
+    min_seg_duration = float(os.getenv('MIN_SEG_DURATION')) if os.getenv('MIN_SEG_DURATION') else 1.0
     use_kaldi = os.getenv('USE_KALDI') == 'True' if os.getenv('USE_KALDI') else False
 
     icsi_manifest = create_manifest(audio_dir, transcript_dir, output_dir)
-    compute_features(icsi_manifest=icsi_manifest, data_dfs_dir=data_dfs_dir,
-                     output_dir=output_dir, num_jobs=num_jobs, use_kaldi=use_kaldi)
+    compute_features(icsi_manifest=icsi_manifest, 
+                     data_dfs_dir=data_dfs_dir,
+                     output_dir=output_dir,
+                     num_jobs=num_jobs,
+                     min_seg_duration=min_seg_duration, 
+                     use_kaldi=use_kaldi)
 
 
 if __name__ == "__main__":
