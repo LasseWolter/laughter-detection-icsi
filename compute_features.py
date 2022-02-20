@@ -133,7 +133,7 @@ def compute_features(icsi_manifest, data_dfs_dir, output_dir, num_jobs=8, use_ka
         # If file already exist, load it from disk
         if(os.path.isfile(cuts_with_feats_file) and not force_feature_recompute):
             print("LOADING FEATURES FROM DISK - NOT RECOMPUTING")
-            cuts = CutSet.from_jsonl(f'{split}_cutset_with_feats.jsonl')
+            cuts = CutSet.from_jsonl(cuts_with_feats_file)
         else:
             if (use_kaldi):
                 cuts = cutset.compute_and_store_features_batch(
