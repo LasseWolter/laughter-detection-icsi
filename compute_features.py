@@ -59,8 +59,54 @@ def create_manifest(audio_dir, transcripts_dir, output_dir, force_manifest_reloa
 
     return icsi
 
+def compute_features_per_split(icsi_manifest, output_dir, num_jobs=8, use_kaldi=False):
+    '''
+    Create a cutset for each split, containing a feature representation for each channel over the 
+    whole duration of each meeting in that split.
+    The feature representation of each channel can then be used to create smaller cuts from it.
+    '''
+    feats_dir = os.path.join(output_dir, 'feats')
+    cutset_dir = os.path.join(output_dir, 'cutsets')
 
-def compute_features(icsi_manifest, data_dfs_dir, output_dir, num_jobs=8, min_seg_duration=1.0, use_kaldi=False, force_feature_recompute=False):
+    # Using 100frams and 40bins -> ASR standard
+    extrac = Fbank(FbankConfig(num_filters=40))
+    if (use_kaldi):
+            print('Using Kaldifeat-Extractor...')
+            extrac = KaldifeatFbank(KaldifeatFbankConfig(
+                mel_opts=KaldifeatMelOptions(num_bins=40)))
+    
+    for split in SPLITS:
+        # One cutset representing all meetings (with all their channels) from that split
+        split_cutset = CutSet.from_manifests(recordings=icsi_manifest[split]['recordings'],
+                                            supervisions=icsi_manifest[split]['supervisions'])
+
+        # Prevents possible error: 
+        # See: https://github.com/lhotse-speech/lhotse/issues/559
+        torch.set_num_threads(1)
+
+        if use_kaldi:
+            split_feat_cuts = split_cutset.compute_and_store_features_batch(
+                extractor=extrac,
+                storage_path=feats_dir,
+                num_workers=num_jobs
+            )
+        else:
+            split_feat_cuts = split_cutset.compute_and_store_features(
+                extractor=extrac,
+                storage_path=feats_dir,
+                num_jobs=num_jobs
+            )
+        
+        split_feat_cuts.to_jsonl(os.path.join(cutset_dir, f'{split}_feats.jsonl'))
+
+
+def compute_features_for_cuts(icsi_manifest, data_dfs_dir, output_dir, num_jobs=8, min_seg_duration=1.0, use_kaldi=False, force_feature_recompute=False):
+    '''
+    Takes an icsi manifest and a directory containing dataframes which define cuts for the different splits.
+    Creates cutsets for each split representing the cuts defined by the dataframes.
+    The dataframes define one cut per row in the following format:
+        [region start, region duration, subsampled region start, subsampled region duration, audio path, label]
+    '''
 
     feats_dir = os.path.join(output_dir, 'feats')
     cutset_dir = os.path.join(output_dir, 'cutsets')
@@ -91,8 +137,8 @@ def compute_features(icsi_manifest, data_dfs_dir, output_dir, num_jobs=8, min_se
     for split, df in dfs.items():
         cut_list = []
         for ind, row in df.iterrows():
-            meeting_id = row.audio_path.split('/')[0]
-            channel = row.audio_path.split('/')[1].split('.')[0]
+            meeting_id = row.meeting_id
+            channel = row.chan_id
             chan_id = chan_idx_map[meeting_id][channel]
             rec = icsi_manifest[split]['recordings'][meeting_id]
             # Create supervision segment indicating laughter or non-laughter by passing a
@@ -118,13 +164,15 @@ def compute_features(icsi_manifest, data_dfs_dir, output_dir, num_jobs=8, min_se
         print(f'Computing features for {split}...')
         # Choose frame_shift value to match the hop_length of Gillick et al
         # 0.2275 = 16 000 / 364 -> [frame_rate / hop_length]
-        fbank_conf = Fbank(FbankConfig(num_filters=128, frame_shift=0.02275))
+        extrac = Fbank(FbankConfig(num_filters=128, frame_shift=0.02275))
 
         if (use_kaldi):
             print('Using Kaldifeat-Extractor...')
-            fbank_conf = KaldifeatFbank(KaldifeatFbankConfig(
+            extrac = KaldifeatFbank(KaldifeatFbankConfig(
                 mel_opts=KaldifeatMelOptions(num_bins=128)))
 
+        # Prevents possible error: 
+        # See: https://github.com/lhotse-speech/lhotse/issues/559
         torch.set_num_threads(1)
 
         # File in which the CutSet object (which contains feature metadata) was/will be stored
@@ -138,13 +186,13 @@ def compute_features(icsi_manifest, data_dfs_dir, output_dir, num_jobs=8, min_se
         else:
             if (use_kaldi):
                 cuts = cutset.compute_and_store_features_batch(
-                    extractor=fbank_conf,
+                    extractor=extrac,
                     storage_path=feats_dir,
                     num_workers=num_jobs
                 )
             else:
                 cuts = cutset.compute_and_store_features(
-                    extractor=fbank_conf,
+                    extractor=extrac,
                     storage_path=feats_dir,
                     num_jobs=num_jobs
                 )
@@ -152,9 +200,9 @@ def compute_features(icsi_manifest, data_dfs_dir, output_dir, num_jobs=8, min_se
             # If padding is added the returned cut is a MixedCut 
             # When features are computed for this MixedCut a MonoCut with no recording attached  
             # is returned (see: https://lhotse.readthedocs.io/en/latest/api.html#lhotse.cut.MixedCut.compute_and_store_features)
-            # This is an issue because a supervision_segment needs an id attached to it and  
-            # still has the recording_id from the original assignment
-            # Re-attach the correct recording and channel to such cuts
+            # This is an issue because a supervision_segment still has the recording_id 
+            # from the original assignment (which is required for supervision_segment)
+            # Thus, we re-attach the correct recording and channel to such cuts
             # Need to do the same thing for the features of such cuts 
             # TODO: Find a better way of doing this
             for i in range(0, len(cuts)):
@@ -181,18 +229,25 @@ def main(env_file='.env'):
     dotenv.load_dotenv(env_file)
     audio_dir = os.getenv('AUDIO_DIR')
     transcript_dir = os.getenv('TRANSCRIPT_DIR')
+    manifest_dir = os.getenv('MANIFEST_DIR')
     output_dir = os.getenv('OUTPUT_DIR')
+    split_feat_dir = os.getenv('SPLIT_FEAT_DIR')
     data_dfs_dir = os.getenv('DATA_DFS_DIR')
     num_jobs = int(os.getenv('NUM_JOBS')) if os.getenv('NUM_JOBS') else 8
     min_seg_duration = float(os.getenv('MIN_SEG_DURATION')) if os.getenv('MIN_SEG_DURATION') else 1.0
     use_kaldi = os.getenv('USE_KALDI') == 'True' if os.getenv('USE_KALDI') else False
 
-    icsi_manifest = create_manifest(audio_dir, transcript_dir, output_dir)
-    compute_features(icsi_manifest=icsi_manifest, 
-                     data_dfs_dir=data_dfs_dir,
-                     output_dir=output_dir,
+    icsi_manifest = create_manifest(audio_dir, transcript_dir, manifest_dir)
+    # compute_features_for_cuts(icsi_manifest=icsi_manifest, 
+    #                  data_dfs_dir=data_dfs_dir,
+    #                  output_dir=output_dir,
+    #                  num_jobs=num_jobs,
+    #                  min_seg_duration=min_seg_duration, 
+    #                  use_kaldi=use_kaldi)
+
+    compute_features_per_split(icsi_manifest=icsi_manifest, 
+                     output_dir=split_feat_dir,
                      num_jobs=num_jobs,
-                     min_seg_duration=min_seg_duration, 
                      use_kaldi=use_kaldi)
 
 
