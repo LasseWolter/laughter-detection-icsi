@@ -162,7 +162,7 @@ def compute_features(icsi_manifest, data_dfs_dir, output_dir, num_jobs=8, min_se
                     # Get the recording_id from the supervision segment
                     meeting_id = cuts[i].supervisions[0].recording_id 
                     chan_id = cuts[i].supervisions[0].channel 
-                    rec = icsi_manifest['dev']['recordings'][meeting_id]
+                    rec = icsi_manifest[split]['recordings'][meeting_id]
                     cuts[i].recording = rec
                     cuts[i].channel = chan_id
                     cuts[i].features.recording_id = rec.id
