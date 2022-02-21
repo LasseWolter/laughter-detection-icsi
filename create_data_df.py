@@ -102,7 +102,7 @@ def create_data_df(data_dir):
 
             # Subsample laugh segment and append to list
             audio_path = os.path.join(
-                laugh_seg.meeting_id, f'{laugh_seg.chan}.sph')
+                laugh_seg.meeting_id, f'{laugh_seg.chan_id}.sph')
             sub_start, sub_duration = get_subsample(
                 laugh_seg.start, laugh_seg.length, cfg.train['subsample_duration'])
 
