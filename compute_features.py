@@ -68,6 +68,8 @@ def compute_features_per_split(icsi_manifest, output_dir, num_jobs=8, use_kaldi=
     feats_dir = os.path.join(output_dir, 'feats')
     cutset_dir = os.path.join(output_dir, 'cutsets')
 
+    subprocess.run(['mkdir', '-p', cutset_dir])
+
     # Using 100frams and 40bins -> ASR standard
     extrac = Fbank(FbankConfig(num_filters=40))
     if (use_kaldi):
@@ -100,7 +102,7 @@ def compute_features_per_split(icsi_manifest, output_dir, num_jobs=8, use_kaldi=
         split_feat_cuts.to_jsonl(os.path.join(cutset_dir, f'{split}_feats.jsonl'))
 
 
-def compute_features_for_cuts(icsi_manifest, data_dfs_dir, output_dir, num_jobs=8, min_seg_duration=1.0, use_kaldi=False, force_feature_recompute=False):
+def compute_features_for_cuts(icsi_manifest, data_dfs_dir, output_dir, split_feats_dir, num_jobs=8, min_seg_duration=1.0, use_kaldi=False, force_feature_recompute=False):
     '''
     Takes an icsi manifest and a directory containing dataframes which define cuts for the different splits.
     Creates cutsets for each split representing the cuts defined by the dataframes.
@@ -122,10 +124,14 @@ def compute_features_for_cuts(icsi_manifest, data_dfs_dir, output_dir, num_jobs=
     chan_idx_map = pickle.load(chan_map_file)
 
     # Read data_dfs containing the samples for train,val,test split
+    # + Read the cutsets for each split containing the feature representation for the whole tracks
     dfs = {}
+    split_feat_cutsets = {} 
     for split in SPLITS:
         dfs[split] = pd.read_csv(os.path.join(
             data_dfs_dir, f'{split}_df.csv'))
+
+        split_feat_cutsets[split] = CutSet.from_jsonl(os.path.join(split_feats_dir, 'cutsets', f'{split}_feats.jsonl'))
 
     # We use the existing dataframe to create a corresponding cut for each row
     # Supervisions stating laugh/non-laugh are attached to each cut
@@ -138,21 +144,27 @@ def compute_features_for_cuts(icsi_manifest, data_dfs_dir, output_dir, num_jobs=
         cut_list = []
         for ind, row in df.iterrows():
             meeting_id = row.meeting_id
-            channel = row.chan_id
-            chan_id = chan_idx_map[meeting_id][channel]
-            rec = icsi_manifest[split]['recordings'][meeting_id]
-            # Create supervision segment indicating laughter or non-laughter by passing a
-            # dict to the custom field -> {'is_laugh': 0/1}
-            # TODO: change duration from hardcoded to a value from a config file
-            sup = SupervisionSegment(id=f'sup_{split}_{ind}', recording_id=rec.id, start=row.sub_start,
-                                     duration=min_seg_duration, channel=chan_id, custom={'is_laugh': row.label})
+            chan_name = row.chan_id
+            chan_id = chan_idx_map[meeting_id][chan_name]
+            # Get track for this particular channel in this meeting
+            # [0] because we know that only one meeting will match this query
+            row_track = split_feat_cutsets[split].filter(lambda c: (c.id.startwith(meeting_id) and c.channel ==chan_id))[0]
 
-            # Pad cut-subsample to a minimum of 1s
-            # Do this because there are laugh segments that are shorter than 1s
-            cut = MonoCut(id=f'{split}_{ind}', start=row.sub_start, duration=row.sub_duration,
-                          recording=rec, channel=chan_id, supervisions=[sup]).pad(duration=1.0)
+            # Get a cut that represents the subsample from this track 
+            row_cut = row_track.truncate(offset=row.sub_start, duration=row.sub_duration)
+            # rec = icsi_manifest[split]['recordings'][meeting_id]
+            # # Create supervision segment indicating laughter or non-laughter by passing a
+            # # dict to the custom field -> {'is_laugh': 0/1}
+            # # TODO: change duration from hardcoded to a value from a config file
+            # sup = SupervisionSegment(id=f'sup_{split}_{ind}', recording_id=rec.id, start=row.sub_start,
+            #                          duration=min_seg_duration, channel=chan_id, custom={'is_laugh': row.label})
 
-            cut_list.append(cut)
+            # # Pad cut-subsample to a minimum of 1s
+            # # Do this because there are laugh segments that are shorter than 1s
+            # cut = MonoCut(id=f'{split}_{ind}', start=row.sub_start, duration=row.sub_duration,
+            #               recording=rec, channel=chan_id, supervisions=[sup]).pad(duration=1.0)
+
+            cut_list.append(row_cut)
 
         cutset_dict[split] = CutSet.from_cuts(cut_list)
 
@@ -238,17 +250,18 @@ def main(env_file='.env'):
     use_kaldi = os.getenv('USE_KALDI') == 'True' if os.getenv('USE_KALDI') else False
 
     icsi_manifest = create_manifest(audio_dir, transcript_dir, manifest_dir)
-    # compute_features_for_cuts(icsi_manifest=icsi_manifest, 
-    #                  data_dfs_dir=data_dfs_dir,
-    #                  output_dir=output_dir,
-    #                  num_jobs=num_jobs,
-    #                  min_seg_duration=min_seg_duration, 
-    #                  use_kaldi=use_kaldi)
-
-    compute_features_per_split(icsi_manifest=icsi_manifest, 
-                     output_dir=split_feat_dir,
+    compute_features_for_cuts(icsi_manifest=icsi_manifest, 
+                     data_dfs_dir=data_dfs_dir,
+                     output_dir=output_dir,
+                     split_feats_dir=split_feat_dir,
                      num_jobs=num_jobs,
+                     min_seg_duration=min_seg_duration, 
                      use_kaldi=use_kaldi)
+
+    # compute_features_per_split(icsi_manifest=icsi_manifest, 
+    #                  output_dir=split_feat_dir,
+    #                  num_jobs=num_jobs,
+    #                  use_kaldi=use_kaldi)
 
 
 if __name__ == "__main__":
