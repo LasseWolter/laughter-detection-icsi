@@ -52,7 +52,7 @@ def get_random_speech_segment(duration, meeting_id):
     else:
         sub_start, sub_duration = get_subsample(
             start, duration, cfg.train['subsample_duration'])
-        return [start, duration, sub_start, sub_duration, sample_seg.path, 0]
+        return [start, duration, sub_start, sub_duration, sample_seg.path, meeting_id, sample_seg.chan_id, 0]
 
 
 def get_subsample(start, duration, subsample_duration):
@@ -107,11 +107,11 @@ def create_data_df(data_dir):
                 laugh_seg.start, laugh_seg.length, cfg.train['subsample_duration'])
 
             laugh_seg_lists[split].append(
-                [laugh_seg.start, laugh_seg.length, sub_start, sub_duration, audio_path, 1])
+                [laugh_seg.start, laugh_seg.length, sub_start, sub_duration, audio_path, laugh_seg.meeting_id, laugh_seg.chan_id, 1])
 
     # Columns for data_dfs - same for speech and laughter as they will be combined to one df
-    cols = ['start', 'duration', 'sub_start',
-            'sub_duration', 'audio_path', 'label']
+    cols = ['start', 'duration', 'sub_start', 'sub_duration', 
+            'audio_path', 'meeting_id', 'chan_id', 'label']
 
     # Create output directory for dataframes
     subprocess.run(['mkdir', '-p', data_dir])

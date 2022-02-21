@@ -198,9 +198,9 @@ def general_info_to_list(filename, meeting_id):
     tree = etree.parse(filename)
     # Get End-Timestamp of last transcription of the meeting
     meeting_len = tree.findall("//Segment")[-1].get("EndTime")
-    for chan, part_id in chan_to_part[meeting_id].items():
-        path = os.path.join(meeting_id, f"{chan}.sph")
-        general_info_list.append([meeting_id, part_id, chan, meeting_len, path])
+    for chan_id, part_id in chan_to_part[meeting_id].items():
+        path = os.path.join(meeting_id, f"{chan_id}.sph")
+        general_info_list.append([meeting_id, part_id, chan_id, meeting_len, path])
 
     return general_info_list
 
@@ -240,9 +240,9 @@ def create_dfs(file_dir, files):
 
         5) general_info_df: dataframe containing total length and audio_path of each channel
 
-    segment_dataframes columns: ['meeting_id', 'part_id', 'chan', 'start', 'end', 'length', 'type', 'laugh_type']
+    segment_dataframes columns: ['meeting_id', 'part_id', 'chan_id', 'start', 'end', 'length', 'type', 'laugh_type']
 
-    info_df columns: ['meeting_id', 'part_id', 'chan', 'length', 'path']
+    info_df columns: ['meeting_id', 'part_id', 'chan_id', 'length', 'path']
 
     """
     global laugh_only_df, invalid_df, info_df, noise_df, speech_df
@@ -277,7 +277,7 @@ def create_dfs(file_dir, files):
 
     # Create info_df with specified columns and dtypes
     info_dtypes = {"length": "float"}
-    info_cols = ["meeting_id", "part_id", "chan", "length", "path"]
+    info_cols = ["meeting_id", "part_id", "chan_id", "length", "path"]
     info_df = pd.DataFrame(general_info_list, columns=info_cols)
     info_df = info_df.astype(dtype=info_dtypes)
 
