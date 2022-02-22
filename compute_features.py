@@ -28,6 +28,7 @@ import pickle
 import os
 import subprocess
 import dotenv
+from tqdm import tqdm
 
 SPLITS = ['train', 'dev', 'test']
 
@@ -141,7 +142,7 @@ def compute_features_for_cuts(icsi_manifest, data_dfs_dir, output_dir, split_fea
 
     for split, df in dfs.items():
         cut_list = []
-        for ind, row in df.iterrows():
+        for ind, row in tqdm(df.iterrows(), total=df.shape[0], desc=f'Creating features for {split}-split:'):
             meeting_id = row.meeting_id
             chan_name = row.chan_id
             chan_id = chan_idx_map[meeting_id][chan_name]
