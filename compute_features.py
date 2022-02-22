@@ -159,12 +159,16 @@ def compute_features_for_cuts(icsi_manifest, data_dfs_dir, output_dir, split_fea
             sup = SupervisionSegment(id=f'sup_{row_cut.id}', recording_id=row_cut.recording.id, start=row.sub_start,
                                      duration=min_seg_duration, channel=chan_id, custom={'is_laugh': row.label})
 
-            # We padded to the right, so [0] will be the MonoCut to which we want to add the supervision
-            # This supervision will then also be the supervision for the MixedCut  
-            row_cut.tracks[0].cut.supervisions.append(sup)
+            if (row.sub_duration < min_seg_duration):   # row_cut is a MixedCut
+                # We padded to the right, so [0] will be the MonoCut to which we want to add the supervision
+                # This supervision will then also be the supervision for the MixedCut  
+                row_cut.tracks[0].cut.supervisions.append(sup)
+            else: # row_cut is a MonoCut
+                row_cut.supervisions.append(sup)
 
-            # # Pad cut-subsample to a minimum of 1s
-            # # Do this because there are laugh segments that are shorter than 1s
+
+            # Pad cut-subsample to a minimum of 1s
+            # Do this because there are laugh segments that are shorter than 1s
             # cut = MonoCut(id=f'{split}_{ind}', start=row.sub_start, duration=row.sub_duration,
             #               recording=rec, channel=chan_id, supervisions=[sup]).pad(duration=1.0)
 
