@@ -55,6 +55,7 @@ class LadDataset(torch.utils.data.Dataset):
             inputs = tfnm(inputs)
         is_laugh = []
         for c in cuts:
+            # Assumes that there is only one supervision per cut 
             is_laugh.append(c.supervisions[0].custom['is_laugh'])
         return {
             "inputs": inputs,
