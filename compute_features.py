@@ -50,10 +50,12 @@ def create_manifest(audio_dir, transcripts_dir, output_dir, force_manifest_reloa
             icsi[split] = {}
             rec_set = RecordingSet.from_jsonl(os.path.join(
                 output_dir, f'recordings_{split}.jsonl'))
-            sup_set = SupervisionSet.from_jsonl(os.path.join(
-                output_dir, f'supervisions_{split}.jsonl'))
             icsi[split]['recordings'] = rec_set
-            icsi[split]['supervisions'] = sup_set
+
+            # We don't need the original supervisions for now
+            # sup_set = SupervisionSet.from_jsonl(os.path.join(
+            #     output_dir, f'supervisions_{split}.jsonl'))
+            # icsi[split]['supervisions'] = sup_set
     else:
         icsi = prepare_icsi(
             audio_dir=audio_dir, transcripts_dir=transcripts_dir, output_dir=output_dir)
@@ -80,8 +82,10 @@ def compute_features_per_split(icsi_manifest, output_dir, num_jobs=8, use_kaldi=
     
     for split in SPLITS:
         # One cutset representing all meetings (with all their channels) from that split
-        split_cutset = CutSet.from_manifests(recordings=icsi_manifest[split]['recordings'],
-                                            supervisions=icsi_manifest[split]['supervisions'])
+        # If you want to add supervisions, add: `supervisions=icsi_manifest[split]['supervisions']`
+        # requires that the original supervisions exists on disk
+        split_cutset = CutSet.from_manifests(recordings=icsi_manifest[split]['recordings'])
+
 
         # Prevents possible error: 
         # See: https://github.com/lhotse-speech/lhotse/issues/559
@@ -266,18 +270,19 @@ def main(env_file='.env'):
     use_kaldi = os.getenv('USE_KALDI') == 'True' if os.getenv('USE_KALDI') else False
 
     icsi_manifest = create_manifest(audio_dir, transcript_dir, manifest_dir)
-    compute_features_for_cuts(icsi_manifest=icsi_manifest, 
-                     data_dfs_dir=data_dfs_dir,
-                     output_dir=output_dir,
-                     split_feats_dir=split_feat_dir,
-                     num_jobs=num_jobs,
-                     min_seg_duration=min_seg_duration, 
-                     use_kaldi=use_kaldi)
+    compute_features_per_split(icsi_manifest=icsi_manifest, 
+                    output_dir=split_feat_dir,
+                    num_jobs=num_jobs,
+                    use_kaldi=use_kaldi)
 
-    # compute_features_per_split(icsi_manifest=icsi_manifest, 
-    #                  output_dir=split_feat_dir,
-    #                  num_jobs=num_jobs,
-    #                  use_kaldi=use_kaldi)
+    compute_features_for_cuts(icsi_manifest=icsi_manifest, 
+                    data_dfs_dir=data_dfs_dir,
+                    output_dir=output_dir,
+                    split_feats_dir=split_feat_dir,
+                    num_jobs=num_jobs,
+                    min_seg_duration=min_seg_duration, 
+                    use_kaldi=use_kaldi)
+
 
 
 if __name__ == "__main__":
