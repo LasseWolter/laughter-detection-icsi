@@ -39,10 +39,11 @@ warnings.filterwarnings('ignore', category=UserWarning)
 
 @dataclass
 class MetricEntry():
+    accuracy: float
     precision: float
     recall: float
-    accuracy: float
     loss: float
+    epoch: int
 
     def to_list(self): 
         '''
@@ -52,6 +53,7 @@ class MetricEntry():
         return [self.precision, self.recall, self.accuracy, self.loss]
     
 # Stores metrics during training (on train-set and small val-batches) in the following format
+# Also stores the global step at which an epoch finished for convenient plotting in a metric-visualisation 
 METRICS_DICT = {}
 '''
 {
@@ -60,8 +62,8 @@ METRICS_DICT = {}
         "val": MetricsEntry
     }, 
     num_batches_processed: {
-        "train": MetricsEntry
-        "val": MetricsEntry
+    "train": MetricsEntry
+    "val": MetricsEntry
     }, 
     ...
 }
@@ -180,7 +182,7 @@ def run_training_loop(n_epochs, model, device, checkpoint_dir,
                                checkpoint_dir=checkpoint_dir, optimizer=optimizer,
                                log_frequency=log_frequency, checkpoint_frequency=log_frequency,
                                clip=gradient_clip, val_iterator=val_iterator,
-                               verbose=verbose)
+                               verbose=verbose, epoch_num=epoch+1)
 
         if verbose:
             end_time = time.time()
@@ -189,7 +191,7 @@ def run_training_loop(n_epochs, model, device, checkpoint_dir,
             print(f'Epoch: {epoch+1:02} | Time: {epoch_mins}m {epoch_secs}s')
 
 
-def run_epoch(model, mode, device, iterator, checkpoint_dir, optimizer=None, clip=None,
+def run_epoch(model, mode, device, iterator, checkpoint_dir, epoch_num, optimizer=None, clip=None,
               batches=None, log_frequency=None, checkpoint_frequency=None,
               validate_online=True, val_iterator=None, val_batches=None,
               verbose=True):
@@ -200,9 +202,9 @@ def run_epoch(model, mode, device, iterator, checkpoint_dir, optimizer=None, cli
     def _eval_for_logging(model, device, val_itr, val_iterator, val_batches_per_log):
         model.eval()
         val_losses = []
-        val_accs = []
-        val_precs = []
-        val_recalls = []
+        # Collect target and pred values for all batches and calc metrics at the end 
+        val_trgs = torch.tensor([])
+        val_preds = torch.tensor([]) 
 
         for j in range(val_batches_per_log):
             try:
@@ -211,18 +213,46 @@ def run_epoch(model, mode, device, iterator, checkpoint_dir, optimizer=None, cli
                 val_itr = iter(val_iterator)
                 val_batch = val_itr.next()
 
-            val_loss, val_acc, val_prec, val_recall = _eval_batch(
-                model, device, val_batch)
+            val_loss, trgs, preds= _eval_batch(
+                model, device, val_batch, return_raw=True)
 
-            val_precs.append(val_prec)
-            val_recalls.append(val_recall)
+            val_trgs = torch.cat((val_trgs, trgs))
+            val_preds = torch.cat((val_preds, preds))
             val_losses.append(val_loss)
-            val_accs.append(val_acc)
 
+        acc, prec, recall = _calc_metrics(val_trgs, val_preds)
         model.train()
-        return val_itr, np.mean(val_losses), np.mean(val_accs), np.mean(val_precs), np.mean(val_recalls)
+        return val_itr, np.mean(val_losses), acc, prec, recall 
 
-    def _eval_batch(model, device, batch, batch_index=None, clip=None):
+    def _calc_metrics(trgs, preds):
+        '''
+        Calculates accuracy, precision and recall and returns them in that order
+        '''
+        acc = torch.sum(preds == trgs).float()/len(trgs)
+
+        # Calculate necessary numbers for prec and recall calculation
+        # '==' operator on tensors is applied element-wise
+        # '*' exploits the fact that True*True = 1
+        corr_pred_laughs = torch.sum((preds == trgs) * (preds == 1)).float()
+        total_trg_laughs = torch.sum(trgs == 1).float()
+        total_pred_laughs = torch.sum(preds == 1).float()
+
+        if total_pred_laughs == 0:
+            prec = torch.tensor(1.0) 
+        else:
+            prec = corr_pred_laughs/total_pred_laughs
+
+        recall = corr_pred_laughs/total_trg_laughs
+
+        # Returns only the content of the torch tensor
+        return acc.item(), prec.item(), recall.item()
+
+    def _eval_batch(model, device, batch, batch_index=None, clip=None, return_raw=False):
+        '''
+        Evaluates one batch
+            'return_raw'=True: allows returning the raw target and prediction values to accumulate them 
+            before calculating any metrics
+        '''
         if batch is None:
             print("None Batch")
             return 0.
@@ -235,29 +265,22 @@ def run_epoch(model, mode, device, iterator, checkpoint_dir, optimizer=None, cli
             src = torch.from_numpy(np.array(segs)).float().to(device)
             src = src[:, None, :, :]  # add additional dimension
 
-            trg = torch.from_numpy(np.array(labs)).float().to(device)
+            trgs = torch.from_numpy(np.array(labs)).float().to(device)
             output = model(src).squeeze()
 
             criterion = nn.BCELoss()
-            bce_loss = criterion(output, trg)
+            bce_loss = criterion(output, trgs)
             preds = torch.round(output)
-            print(f'targets: {trg}')
-            print(f'preds: {preds}')
             # sum(preds==trg).float()/len(preds)
 
-            # Calculate necessary numbers for prec and recall calculation
-            # '==' operator on tensors is applied element-wise
-            # '*' exploits the fact that True*True = 1
-            corr_pred_laughs = torch.sum((preds == trg) * (preds == 1)).float()
-            total_trg_laughs = torch.sum(trg == 1).float()
-            total_pred_laughs = torch.sum(preds == 1).float()
+            # Allows to evaluate several batches together for logging
+            # Used to avoid lots of precision=1 because no predictions were made
+            if return_raw:
+                return bce_loss, trgs, preds
 
-            prec = corr_pred_laughs/total_pred_laughs
-            recall = corr_pred_laughs/total_trg_laughs
+            acc, prec, recall = _calc_metrics(trgs, preds)
 
-            acc = torch.sum(preds == trg).float()/len(trg)
-
-            return bce_loss.item(), acc.item(), prec.item(), recall.item()
+            return bce_loss.item(), acc, prec, recall
 
     def _train_batch(model, device, batch, batch_index=None, clip=None):
 
@@ -271,7 +294,7 @@ def run_epoch(model, mode, device, iterator, checkpoint_dir, optimizer=None, cli
 
         src = torch.from_numpy(np.array(segs)).float().to(device)
         src = src[:, None, :, :]  # add additional dimension
-        trg = torch.from_numpy(np.array(labs)).float().to(device)
+        trgs = torch.from_numpy(np.array(labs)).float().to(device)
 
         # optimizer.zero_grad()
 
@@ -280,19 +303,10 @@ def run_epoch(model, mode, device, iterator, checkpoint_dir, optimizer=None, cli
         criterion = nn.BCELoss()
 
         preds = torch.round(output)
-        acc = torch.sum(preds == trg).float()/len(trg)
 
-        # Calculate necessary numbers for prec and recall calculation
-        # '==' operator on tensors is applied element-wise
-        # '*' exploits the fact that True*True = 1
-        corr_pred_laughs = torch.sum((preds == trg) * (preds == 1)).float()
-        total_trg_laughs = torch.sum(trg == 1).float()
-        total_pred_laughs = torch.sum(preds == 1).float()
+        acc, prec, recall = _calc_metrics(trgs, preds)        
 
-        prec = corr_pred_laughs/total_pred_laughs
-        recall = corr_pred_laughs/total_trg_laughs
-
-        bce_loss = criterion(output, trg)
+        bce_loss = criterion(output, trgs)
 
         loss = bce_loss
         loss = loss/gradient_accumulation_steps
@@ -304,11 +318,7 @@ def run_epoch(model, mode, device, iterator, checkpoint_dir, optimizer=None, cli
             optimizer.step()
             model.zero_grad()
 
-        return bce_loss.item(), acc.item(), prec.item(), recall.item()
-
-    # TODO: possibly take out this case because we just want to support passing an iterator anyway?
-    if False:  # not (bool(iterator) ^ bool(batches)):
-        raise Exception("Must pass either `iterator` or batches")
+        return bce_loss.item(), acc, prec, recall
 
     if mode.lower() not in ['train', 'eval']:
         raise Exception("`mode` must be 'train' or 'eval'")
@@ -337,8 +347,7 @@ def run_epoch(model, mode, device, iterator, checkpoint_dir, optimizer=None, cli
         batch_accs = []
         batch_precs = []
         batch_recalls = []
-        # batch_consistency_losses = []
-        # batch_ent_losses = []
+
         num_batches = 0
         for i, batch in tqdm(enumerate(iterator)):
             # learning rate scheduling
@@ -349,8 +358,14 @@ def run_epoch(model, mode, device, iterator, checkpoint_dir, optimizer=None, cli
             batch_loss, batch_acc, batch_prec, batch_recall = _run_batch(model, device, batch,
                                                                          batch_index=i, clip=clip)
 
+            epoch_loss += batch_loss
+            model.global_step += 1
+            num_batches = +1
+
             batch_losses.append(batch_loss)
             batch_accs.append(batch_acc)
+            batch_precs.append(batch_prec)
+            batch_recalls.append(batch_recall)
 
             if log_frequency is not None and (model.global_step + 1) % log_frequency == 0:
                 # TODO: possibly remove val_itr from return values?
@@ -364,45 +379,44 @@ def run_epoch(model, mode, device, iterator, checkpoint_dir, optimizer=None, cli
                 # Init metrics entry for this batch_number (i.e. global step)
                 METRICS_DICT[model.global_step] = {}
                 # Save metrics for the validation above
-                METRICS_DICT[model.global_step]['val']= MetricEntry(
-                    precision= val_acc_at_step,
-                    recall= val_prec_at_step,
-                    accuracy= val_recall_at_step,
-                    loss= val_loss_at_step
+                val_metrics = MetricEntry(
+                    accuracy= val_acc_at_step,
+                    precision= val_prec_at_step,
+                    recall= val_recall_at_step,
+                    loss= val_loss_at_step,
+                    epoch=epoch_num
                 )
-
-                train_loss_at_step = np.mean(batch_losses)
-                train_acc_at_step = np.mean(batch_accs)
-                train_prec_at_step = np.mean(batch_precs)
-                train_recall_at_step = np.mean(batch_recalls)
+                METRICS_DICT[model.global_step]['val']= val_metrics
 
                 # Save metrics on training set up to now
-                METRICS_DICT[model.global_step]['train'] = MetricEntry(
-                    precision=train_acc_at_step,
-                    recall=train_prec_at_step,
-                    accuracy=train_recall_at_step,
-                    loss=train_loss_at_step
+                train_metrics = MetricEntry(
+                    accuracy=np.mean(batch_accs),
+                    precision=np.mean(batch_precs),
+                    # Ignore nan values for recall mean calculation
+                    recall=np.nanmean(batch_recalls),
+                    loss=np.mean(batch_losses),
+                    epoch=epoch_num
                 )
+
+                # Reset training metrics 
+                batch_losses = []
+                batch_accs = [] 
+                batch_recalls = []
+                batch_precs = []
+
+                METRICS_DICT[model.global_step]['train'] = train_metrics
 
                 if verbose:
                     print("\nLogging at step: ", model.global_step)
-                    print("Train loss: ", train_loss_at_step)
-                    print("Train accuracy: ", train_acc_at_step)
-                    print("Val loss: ", val_loss_at_step)
-                    print("Val accuracy: ", val_acc_at_step)
+                    print("Train metrics: ", train_metrics)
+                    print("Validation metrics: ", val_metrics)
 
-                batch_losses = []
-                batch_accs = []  # reset
 
             if checkpoint_frequency is not None and (model.global_step + 1) % checkpoint_frequency == 0:
                 state = torch_utils.make_state_dict(model, optimizer, model.epoch,
                                                     model.global_step, model.best_val_loss)
                 torch_utils.save_checkpoint(
                     state, is_best=is_best, checkpoint=checkpoint_dir)
-
-            epoch_loss += batch_loss
-            model.global_step += 1
-            num_batches = +1
 
         model.epoch += 1
         return epoch_loss / num_batches
@@ -483,9 +497,10 @@ def update_metrics_on_disk():
     for batch_num, entry_dict in METRICS_DICT.items():
         train_entry = entry_dict['train'].to_list()
         val_entry = entry_dict['val'].to_list()
-        metric_rows.append([batch_num] + train_entry + val_entry)
+        # Epoch will be the same for training and validation - just take value from training MetricsEntry-object
+        metric_rows.append([batch_num, entry_dict['train'].epoch] + train_entry + val_entry)
     
-    cols = ['batch_num', 'train_prec', 'train_rec', 'train_acc', 'train_loss', 'val_prec', 'val_rec', 'val_acc', 'val_loss']
+    cols = ['batch_num', 'epoch', 'train_prec', 'train_rec', 'train_acc', 'train_loss', 'val_prec', 'val_rec', 'val_acc', 'val_loss'] 
     metrics_df = pd.DataFrame(metric_rows, columns=cols)
 
     # Concat with existing metrics if they exist
