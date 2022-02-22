@@ -139,7 +139,6 @@ def compute_features_for_cuts(icsi_manifest, data_dfs_dir, output_dir, split_fea
     # Columns of dataframes look like this:
     #   cols = ['start', 'duration', 'sub_start', 'sub_duration', 'audio_path', 'label']
 
-    cutset_dict = {}  # will contain CutSets for different splits
     for split, df in dfs.items():
         cut_list = []
         for ind, row in df.iterrows():
@@ -151,13 +150,17 @@ def compute_features_for_cuts(icsi_manifest, data_dfs_dir, output_dir, split_fea
             row_track = split_feat_cutsets[split].filter(lambda c: (c.id.startswith(meeting_id) and c.channel ==chan_id))[0]
 
             # Get a cut that represents the subsample from this track 
-            row_cut = row_track.truncate(offset=row.sub_start, duration=row.sub_duration)
+            row_cut = row_track.truncate(offset=row.sub_start, duration=row.sub_duration).pad(duration=min_seg_duration, preserve_id=True)
             # rec = icsi_manifest[split]['recordings'][meeting_id]
             # # Create supervision segment indicating laughter or non-laughter by passing a
             # # dict to the custom field -> {'is_laugh': 0/1}
             # # TODO: change duration from hardcoded to a value from a config file
-            # sup = SupervisionSegment(id=f'sup_{split}_{ind}', recording_id=rec.id, start=row.sub_start,
-            #                          duration=min_seg_duration, channel=chan_id, custom={'is_laugh': row.label})
+            sup = SupervisionSegment(id=f'sup_{row_cut.id}', recording_id=row_cut.recording.id, start=row.sub_start,
+                                     duration=min_seg_duration, channel=chan_id, custom={'is_laugh': row.label})
+
+            # We padded to the right, so [0] will be the MonoCut to which we want to add the supervision
+            # This supervision will then also be the supervision for the MixedCut  
+            row_cut.tracks[0].cut.supervisions.append(sup)
 
             # # Pad cut-subsample to a minimum of 1s
             # # Do this because there are laugh segments that are shorter than 1s
@@ -166,72 +169,80 @@ def compute_features_for_cuts(icsi_manifest, data_dfs_dir, output_dir, split_fea
 
             cut_list.append(row_cut)
 
-        cutset_dict[split] = CutSet.from_cuts(cut_list)
 
-    print('Write cutset_dict to disk...')
-    with open(os.path.join(cutset_dir, 'cutset_dict_without_feats.pkl'), 'wb') as f:
-        pickle.dump(cutset_dict, f)
+        # Create the actual cutset for this split
+        cuts = CutSet.from_cuts(cut_list)
 
-    for split, cutset in cutset_dict.items():
-        print(f'Computing features for {split}...')
-        # Choose frame_shift value to match the hop_length of Gillick et al
-        # 0.2275 = 16 000 / 364 -> [frame_rate / hop_length]
-        extrac = Fbank(FbankConfig(num_filters=128, frame_shift=0.02275))
+        # Shuffle cutset for better training. In the data_dfs the rows aren't shuffled.
+        # At the top are all speech rows and the bottom all laugh rows
+        cuts = cuts.shuffle()
+        cuts_with_feats_file = os.path.join(cutset_dir, f'{split}_cutset_with_feats.jsonl')
+        cuts.to_jsonl(cuts_with_feats_file)
 
-        if (use_kaldi):
-            print('Using Kaldifeat-Extractor...')
-            extrac = KaldifeatFbank(KaldifeatFbankConfig(
-                mel_opts=KaldifeatMelOptions(num_bins=128)))
+    # print('Write cutset_dict to disk...')
+    # with open(os.path.join(cutset_dir, 'cutset_dict_without_feats.pkl'), 'wb') as f:
+    #     pickle.dump(cutset_dict, f)
 
-        # Prevents possible error: 
-        # See: https://github.com/lhotse-speech/lhotse/issues/559
-        torch.set_num_threads(1)
+    # for split, cutset in cutset_dict.items():
+    #     print(f'Computing features for {split}...')
+    #     # Choose frame_shift value to match the hop_length of Gillick et al
+    #     # 0.2275 = 16 000 / 364 -> [frame_rate / hop_length]
+    #     extrac = Fbank(FbankConfig(num_filters=128, frame_shift=0.02275))
 
-        # File in which the CutSet object (which contains feature metadata) was/will be stored
-        cuts_with_feats_file = os.path.join(
-            cutset_dir, f'{split}_cutset_with_feats.jsonl')
+    #     if (use_kaldi):
+    #         print('Using Kaldifeat-Extractor...')
+    #         extrac = KaldifeatFbank(KaldifeatFbankConfig(
+    #             mel_opts=KaldifeatMelOptions(num_bins=128)))
 
-        # If file already exist, load it from disk
-        if(os.path.isfile(cuts_with_feats_file) and not force_feature_recompute):
-            print("LOADING FEATURES FROM DISK - NOT RECOMPUTING")
-            cuts = CutSet.from_jsonl(cuts_with_feats_file)
-        else:
-            if (use_kaldi):
-                cuts = cutset.compute_and_store_features_batch(
-                    extractor=extrac,
-                    storage_path=feats_dir,
-                    num_workers=num_jobs
-                )
-            else:
-                cuts = cutset.compute_and_store_features(
-                    extractor=extrac,
-                    storage_path=feats_dir,
-                    num_jobs=num_jobs
-                )
+    #     # Prevents possible error: 
+    #     # See: https://github.com/lhotse-speech/lhotse/issues/559
+    #     torch.set_num_threads(1)
 
-            # If padding is added the returned cut is a MixedCut 
-            # When features are computed for this MixedCut a MonoCut with no recording attached  
-            # is returned (see: https://lhotse.readthedocs.io/en/latest/api.html#lhotse.cut.MixedCut.compute_and_store_features)
-            # This is an issue because a supervision_segment still has the recording_id 
-            # from the original assignment (which is required for supervision_segment)
-            # Thus, we re-attach the correct recording and channel to such cuts
-            # Need to do the same thing for the features of such cuts 
-            # TODO: Find a better way of doing this
-            for i in range(0, len(cuts)):
-                if (not cuts[i].has_recording):
-                    # Get the recording_id from the supervision segment
-                    meeting_id = cuts[i].supervisions[0].recording_id 
-                    chan_id = cuts[i].supervisions[0].channel 
-                    rec = icsi_manifest[split]['recordings'][meeting_id]
-                    cuts[i].recording = rec
-                    cuts[i].channel = chan_id
-                    cuts[i].features.recording_id = rec.id
-                    cuts[i].features.channels = chan_id
+    #     # File in which the CutSet object (which contains feature metadata) was/will be stored
+    #     cuts_with_feats_file = os.path.join(
+    #         cutset_dir, f'{split}_cutset_with_feats.jsonl')
 
-            # Shuffle cutset for better training. In the data_dfs the rows aren't shuffled.
-            # At the top are all speech rows and the bottom all laugh rows
-            cuts = cuts.shuffle()
-            cuts.to_jsonl(cuts_with_feats_file)
+    #     # If file already exist, load it from disk
+    #     if(os.path.isfile(cuts_with_feats_file) and not force_feature_recompute):
+    #         print("LOADING FEATURES FROM DISK - NOT RECOMPUTING")
+    #         cuts = CutSet.from_jsonl(cuts_with_feats_file)
+    #     else:
+    #         if (use_kaldi):
+    #             cuts = cutset.compute_and_store_features_batch(
+    #                 extractor=extrac,
+    #                 storage_path=feats_dir,
+    #                 num_workers=num_jobs
+    #             )
+    #         else:
+    #             cuts = cutset.compute_and_store_features(
+    #                 extractor=extrac,
+    #                 storage_path=feats_dir,
+    #                 num_jobs=num_jobs
+    #             )
+
+    #         # If padding is added the returned cut is a MixedCut 
+    #         # When features are computed for this MixedCut a MonoCut with no recording attached  
+    #         # is returned (see: https://lhotse.readthedocs.io/en/latest/api.html#lhotse.cut.MixedCut.compute_and_store_features)
+    #         # This is an issue because a supervision_segment still has the recording_id 
+    #         # from the original assignment (which is required for supervision_segment)
+    #         # Thus, we re-attach the correct recording and channel to such cuts
+    #         # Need to do the same thing for the features of such cuts 
+    #         # TODO: Find a better way of doing this
+    #         for i in range(0, len(cuts)):
+    #             if (not cuts[i].has_recording):
+    #                 # Get the recording_id from the supervision segment
+    #                 meeting_id = cuts[i].supervisions[0].recording_id 
+    #                 chan_id = cuts[i].supervisions[0].channel 
+    #                 rec = icsi_manifest[split]['recordings'][meeting_id]
+    #                 cuts[i].recording = rec
+    #                 cuts[i].channel = chan_id
+    #                 cuts[i].features.recording_id = rec.id
+    #                 cuts[i].features.channels = chan_id
+
+    #         # Shuffle cutset for better training. In the data_dfs the rows aren't shuffled.
+    #         # At the top are all speech rows and the bottom all laugh rows
+    #         cuts = cuts.shuffle()
+    #         cuts.to_jsonl(cuts_with_feats_file)
             
         
 def main(env_file='.env'):
