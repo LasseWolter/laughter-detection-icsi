@@ -77,7 +77,7 @@ def compute_features_per_split(icsi_manifest, output_dir, num_jobs=8, use_kaldi=
     extrac = Fbank(FbankConfig(num_filters=40))
     if (use_kaldi):
             print('Using Kaldifeat-Extractor...')
-            extrac = KaldifeatFbank(KaldifeatFbankConfig(
+            extrac = KaldifeatFbank(KaldifeatFbankConfig(device='cuda',
                 mel_opts=KaldifeatMelOptions(num_bins=40)))
     
     for split in SPLITS:
