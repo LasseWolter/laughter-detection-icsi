@@ -378,10 +378,10 @@ def run_epoch(model, mode, device, iterator, checkpoint_dir, optimizer=None, cli
 
                 # Save metrics on training set up to now
                 METRICS_DICT[model.global_step]['train'] = MetricEntry(
-                    precision=val_acc_at_step,
-                    recall=val_prec_at_step,
-                    accuracy=val_recall_at_step,
-                    loss=val_loss_at_step
+                    precision=train_acc_at_step,
+                    recall=train_prec_at_step,
+                    accuracy=train_recall_at_step,
+                    loss=train_loss_at_step
                 )
 
                 if verbose:
