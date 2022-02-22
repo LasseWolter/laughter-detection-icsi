@@ -391,14 +391,6 @@ def run_epoch(model, mode, device, iterator, checkpoint_dir, optimizer=None, cli
                     print("Val loss: ", val_loss_at_step)
                     print("Val accuracy: ", val_acc_at_step)
 
-                writer.add_scalar(
-                    'loss/train', train_loss_at_step, model.global_step)
-                writer.add_scalar(
-                    'acc/train', train_acc_at_step, model.global_step)
-                writer.add_scalar(
-                    'loss/eval', val_loss_at_step, model.global_step)
-                writer.add_scalar(
-                    'acc/eval', val_acc_at_step, model.global_step)
                 batch_losses = []
                 batch_accs = []  # reset
 
@@ -432,8 +424,6 @@ if os.path.exists(checkpoint_dir) and os.path.isfile(os.path.join(checkpoint_dir
 else:
     print("Saving checkpoints to ", checkpoint_dir)
     print("Beginning training...")
-
-writer = SummaryWriter(checkpoint_dir)
 
 def get_audios_from_text_data(data_file_or_lines, h, sr=sample_rate):
     # This function doesn't use the subsampled offset and duration
