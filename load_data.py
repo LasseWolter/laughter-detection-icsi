@@ -5,11 +5,12 @@ from lhotse import RecordingSet
 from lad import LadDataset, InferenceDataset
 import os
 
-def create_training_dataloader(cutset_dir, split):
+def create_training_dataloader(cutset_dir, split, shuffle=False):
     '''
     Create a dataloader for the provided split 
         - split needs to be one of 'train', 'dev' and 'test'
         - cutset location is the directory in which the lhotse-CutSet with all the information about cuts and their features is stored
+        - shuffle allows shuffling the cutset before the dataloader is created from it
     '''
     if split not in ['train', 'dev', 'test']:
         raise ValueError(
@@ -18,6 +19,9 @@ def create_training_dataloader(cutset_dir, split):
     # Load cutset for split
     cuts = CutSet.from_jsonl(os.path.join(
         cutset_dir, f'{split}_cutset_with_feats.jsonl'))
+    
+    if shuffle:
+        cuts = cuts.shuffle()
 
     # Construct a Pytorch Dataset class for Laugh Activity Detection task:
     dataset = LadDataset()
