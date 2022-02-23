@@ -46,7 +46,9 @@ class LadDataset(torch.utils.data.Dataset):
         self.input_transforms = ifnone(input_transforms, [])
 
     def __getitem__(self, cuts: CutSet) -> Dict[str, torch.Tensor]:
-        validate(cuts)
+        # Not validating because the meta data of truncated cuts won't match 
+        # the feature/recording data until  load_features() / load_audio() is called
+        # validate(cuts)
         # cuts = cuts.sort_by_duration()
         for tfnm in self.cut_transforms:
             cuts = tfnm(cuts)
