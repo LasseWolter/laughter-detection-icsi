@@ -5,29 +5,19 @@
 
 # python train.py --config=resnet_with_augmentation --batch_size=32 --checkpoint_dir=./checkpoints/resnet_aug_audioset_tst --train_on_noisy_audioset=True
 
-import json
 import load_data
-from functools import partial
 import configs
-import models
-from sklearn.utils import shuffle
-from tensorboardX import SummaryWriter
 from torch import optim, nn
 import os
 import sys
-import pickle
 import time
 import argparse
 import torch
 import numpy as np
 import pandas as pd
-from joblib import Parallel, delayed
 from tqdm import tqdm
 import warnings
 # Lhotse imports
-from torch.utils.data import DataLoader
-from lhotse import CutSet
-from lhotse.dataset import VadDataset, SingleCutSampler
 from dataclasses import dataclass
 
 sys.path.append('./utils/')
