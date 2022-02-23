@@ -491,7 +491,7 @@ cutset_dir = os.path.join(data_root, lhotse_dir, 'cutsets')
 
 dev_loader = load_data.create_training_dataloader(cutset_dir, 'dev')
 
-train_loader = load_data.create_training_dataloader(cutset_dir, 'dev')
+train_loader = load_data.create_training_dataloader(cutset_dir, 'train')
 # time_dataloading(1, lhotse_loader, is_lhotse=True)
 
 
