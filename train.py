@@ -12,6 +12,7 @@ import os
 import sys
 import time
 import argparse
+from pathlib import Path
 import torch
 import numpy as np
 import pandas as pd
@@ -128,6 +129,9 @@ num_workers = int(args.num_workers)
 dropout_rate = float(args.dropout_rate)
 gradient_accumulation_steps = int(args.gradient_accumulation_steps)
 metrics_file = os.path.join(checkpoint_dir, 'metrics.csv')
+
+# Create checkpoint dir
+Path(checkpoint_dir).mkdir(parents=True, exist_ok=True)
 
 if args.include_words is not None:
     include_words = True
