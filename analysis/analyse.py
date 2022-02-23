@@ -8,7 +8,8 @@ import subprocess
 import numpy as np
 import portion as P
 import sys
-
+from pathlib import Path
+sys.path.append(str(Path(__file__).parent.parent))
 import analysis.config as cfg
 from analysis.transcript_parsing import parse
 import analysis.preprocess as prep
@@ -117,39 +118,39 @@ def laugh_match(pred_laugh, meeting_id, part_id):
     return(correct, incorrect)
 
 
-def eval_preds(meeting_df, print_stats=False):
+def eval_preds(pred_per_meeting_df, print_stats=False):
     """
     Calculate evaluation metrics for a particular meeting for a certain parameter set
     """
 
     # If there are no predictions, return []
-    if meeting_df.size == 0:
+    if pred_per_meeting_df.size == 0:
         return []
 
-    meeting_id = meeting_df.iloc[0]['meeting_id']
-    threshold = meeting_df.iloc[0]['threshold']
+    meeting_id = pred_per_meeting_df.iloc[0]['meeting_id']
+    threshold = pred_per_meeting_df.iloc[0]['threshold']
 
     tot_predicted_time, tot_corr_pred_time, tot_incorr_pred_time = 0, 0, 0
     tot_transc_laugh_time = prep.laugh_index[meeting_id]['tot_len']
     num_of_tranc_laughs = parse.laugh_only_df[parse.laugh_only_df['meeting_id']
                                               == meeting_id].shape[0]
-    num_of_pred_laughs = meeting_df.shape[0]
+    num_of_pred_laughs = pred_per_meeting_df.shape[0]
 
     # Count by
     num_of_VALID_pred_laughs = 0
 
-    group_by_part = meeting_df.groupby(['part_id'])
+    # Group predictions by participant
+    group_by_part = pred_per_meeting_df.groupby(['part_id'])
 
     for part_id, part_df in group_by_part:
         part_pred_frames = P.empty()
         for _, row in part_df.iterrows():
-
-            # Create interval representing predicted laughter frames
+            # Create interval representing the predicted laughter defined by this row
             pred_start_frame = utils.to_frames(row['start'])
             pred_end_frame = utils.to_frames(row['end'])
             pred_laugh = P.closed(pred_start_frame, pred_end_frame)
 
-            # If the there are no invalid frames for this participant
+            # If the there are no invalid frames for this participant at all
             # or if the laugh frame doesn't lie in an invalid section -> increase num of valid predictions
             if part_id not in prep.invalid_index[meeting_id].keys() or \
                     not prep.invalid_index[meeting_id][part_id].contains(pred_laugh):
@@ -157,22 +158,20 @@ def eval_preds(meeting_df, print_stats=False):
 
             # Append interval to total predicted frames for this participant
             part_pred_frames = part_pred_frames | pred_laugh
-            # Old Version
-            # tot_predicted_time += row['length']
 
         corr, incorr = laugh_match(part_pred_frames, meeting_id, part_id)
         tot_corr_pred_time += corr
         tot_incorr_pred_time += incorr
 
-    # New version
     tot_predicted_time = tot_corr_pred_time + tot_incorr_pred_time
-    # If there are no predictions for this meeting -> precision=1
+    # If there is no predicted laughter time for this meeting -> precision=1
     if tot_predicted_time == 0:
         prec = 1
     else:
         prec = tot_corr_pred_time/tot_predicted_time
     if tot_transc_laugh_time == 0:
-        # If there is no positive data, recall doesn't mean anything -> thus, NaN
+        # If there is no positive data (no laughs in this meeting)
+        # the recall doesn't mean anything -> thus, NaN
         recall = float('NaN')
     else:
         recall = tot_corr_pred_time/tot_transc_laugh_time
@@ -188,16 +187,16 @@ def eval_preds(meeting_df, print_stats=False):
               f'Precision: {prec:.4f}\n'
               f'Recall: {recall:.4f}\n')
 
-    return[meeting_id, threshold, prec, recall, round(tot_corr_pred_time, 2), round(tot_predicted_time, 2),
-           round(tot_transc_laugh_time, 2), num_of_pred_laughs, num_of_VALID_pred_laughs, num_of_tranc_laughs]
-
+    return[meeting_id, threshold, prec, recall, tot_corr_pred_time, tot_predicted_time,
+           tot_transc_laugh_time, num_of_pred_laughs, num_of_VALID_pred_laughs, num_of_tranc_laughs]
 
 def create_evaluation_df(path, use_cache=False):
     """
     Creates a dataframe summarising evaluation metrics per meeting for each parameter-set
     """
-    if not use_cache or not os.path.isfile('.cache/eval_df.csv'):
+    if not use_cache or not os.path.isfile(f'{os.path.dirname(__file__)}/.cache/eval_df.csv'):
         all_evals = []
+        print('Calculating metrics for every meeting for every parameter-set:')
         for meeting in os.listdir(path):
             #print(f'Evaluating meeting {meeting}...')
             meeting_path = os.path.join(path, meeting)
@@ -206,18 +205,18 @@ def create_evaluation_df(path, use_cache=False):
                 for min_length in os.listdir(threshold_dir):
                     textgrid_dir = os.path.join(threshold_dir, min_length)
                     pred_laughs = textgrid_to_df(textgrid_dir)
-                    print(meeting_path, threshold, min_length)
                     out = eval_preds(pred_laughs)
                     all_evals.append(out)
-                    a = 0
+                    # Log progress
+                    print(f'Meeting:{meeting_path.split("/")[-1]}, Threshold:{threshold}, Min-Length:{min_length}')
 
         cols = ['meeting', 'threshold', 'precision', 'recall',
-                'corr_pred_time', 'tot_pred_time', 'tot_transc_time', 'num_of_pred_laughs', 'valid_pred_laughs', 'num_of_transc_laughs']
+                'corr_pred_time', 'tot_pred_time', 'tot_transc_laugh_time', 'num_of_pred_laughs', 'valid_pred_laughs', 'num_of_transc_laughs']
         if len(cols) != len(all_evals[0]):
             raise Exception(
                 f'List returned by eval_preds() has wrong length. Expected length: {len(cols)}. Found: {len(all_evals[0])}.')
         eval_df = pd.DataFrame(all_evals, columns=cols)
-        if not os.path.isdir('.cache'):
+        if not os.path.isdir(f'{os.path.dirname(__file__)}/.cache'):
             subprocess.run(['mkdir', '.cache'])
         eval_df.to_csv('.cache/eval_df.csv', index=False)
     else:
@@ -233,12 +232,18 @@ def calc_sum_stats(eval_df):
     """
     Calculate summary statistics across all meetings per parameter-set
     """
-    # Now aggregate stats across meetings
+    # Old version - not weighted
+    # - problem with different length meetings
     # sum_stats = eval_df.groupby('threshold')[
-    #     ['precision', 'recall']].mean().reset_index()
+    #     ['precision', 'recall', 'valid_pred_laughs']].agg(['mean', 'median']).reset_index()
 
-    sum_stats = eval_df.groupby('threshold')[
-        ['precision', 'recall', 'valid_pred_laughs']].agg(['mean', 'median']).reset_index()
+    # New version - calculating metrics once for the whole corpus 
+    # - solves problem with different length meetings
+    sum_vals = eval_df.groupby('threshold')['corr_pred_time','tot_pred_time','tot_transc_laugh_time'].agg(['sum']).reset_index()
+    sum_vals['precision'] = sum_vals['corr_pred_time'] / sum_vals['tot_pred_time']
+    sum_vals['recall'] = sum_vals['corr_pred_time'] / sum_vals['tot_transc_laugh_time']
+    sum_stats = sum_vals[['threshold', 'precision', 'recall']]
+
     # Filter thresholds
     # sum_stats = sum_stats[sum_stats['threshold'].isin([0.2,0.4,0.6,0.8])]
     return sum_stats
@@ -273,7 +278,7 @@ def plot_aggregated_laughter_length_dist(df, threshold, save_dir=''):
     df = df[df['threshold'] == threshold]
 
     print(axs)
-    cols = ['tot_pred_time', 'tot_transc_time']
+    cols = ['tot_pred_time', 'tot_transc_laugh_time']
 
     for col in cols:
         sns.distplot(x=df[col], ax=axs[0], label=col,
@@ -326,7 +331,7 @@ def plot_agg_pred_time_ratio_dist(df, threshold, save_dir=""):
     df = df[df['threshold'] == threshold]
     fig, ax = plt.subplots(1, 1, figsize=(8, 8))
 
-    cols = ['tot_pred_time', 'tot_transc_time']
+    cols = ['tot_pred_time', 'tot_transc_laugh_time']
     rate_df = (df[cols[0]] / df[cols[1]]) * 100
     sns.histplot(rate_df, alpha=0.5, ax=ax)
     ax.set_xlabel('Ratio (pred_time/tranc_time)[%]')
@@ -476,7 +481,6 @@ def analyse(preds_dir):
 
     # Then create or load eval_df -> stats for each meeting
     eval_df = create_evaluation_df(preds_dir)
-
     # stats_for_different_min_length(preds_path)
     sum_stats = calc_sum_stats(eval_df)
     print(sum_stats)
@@ -488,4 +492,8 @@ def analyse(preds_dir):
 
 
 if __name__ == "__main__":
-    analyse()
+    if len(sys.argv) < 2:
+        print('Usage: python analyse.py <preds_dir>')
+        exit(1) 
+    preds_path = sys.argv[1]
+    analyse(preds_path)
