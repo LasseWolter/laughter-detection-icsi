@@ -62,7 +62,7 @@ def create_manifest(audio_dir, transcripts_dir, output_dir, force_manifest_reloa
 
     return icsi
 
-def compute_features_per_split(icsi_manifest, output_dir, num_jobs=8, use_kaldi=False):
+def compute_features_per_split(icsi_manifest, output_dir, num_jobs=8, use_kaldi=False, force_recompute=False):
     '''
     Create a cutset for each split, containing a feature representation for each channel over the 
     whole duration of each meeting in that split.
@@ -70,6 +70,12 @@ def compute_features_per_split(icsi_manifest, output_dir, num_jobs=8, use_kaldi=
     '''
     feats_dir = os.path.join(output_dir, 'feats')
     cutset_dir = os.path.join(output_dir, 'cutsets')
+
+    if (len(os.listdir(cutset_dir)) > 0):
+        print('==============================\nFEATURES ALREADY EXIST:')
+        print(f'Found features in: "{cutset_dir}"')
+        print(f'To force re-computation pass `force_recompute=True`\n')
+        return
 
     subprocess.run(['mkdir', '-p', cutset_dir])
 
