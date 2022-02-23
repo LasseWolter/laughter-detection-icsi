@@ -178,8 +178,8 @@ def run_epoch(model, mode, device, iterator, checkpoint_dir, epoch_num, optimize
         model.eval()
         val_losses = []
         # Collect target and pred values for all batches and calc metrics at the end 
-        val_trgs = torch.tensor([])
-        val_preds = torch.tensor([]) 
+        val_trgs = torch.tensor([]).to(device)
+        val_preds = torch.tensor([]).to(device)
 
         for j in range(val_batches_per_log):
             try:
@@ -251,7 +251,7 @@ def run_epoch(model, mode, device, iterator, checkpoint_dir, epoch_num, optimize
             # Allows to evaluate several batches together for logging
             # Used to avoid lots of precision=1 because no predictions were made
             if return_raw:
-                return bce_loss, trgs, preds
+                return bce_loss.item(), trgs, preds
 
             acc, prec, recall = _calc_metrics(trgs, preds)
 
