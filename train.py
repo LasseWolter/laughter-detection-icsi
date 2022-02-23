@@ -17,7 +17,6 @@ import os
 import sys
 import pickle
 import time
-import librosa
 import argparse
 import torch
 import numpy as np
@@ -153,24 +152,6 @@ else:
 ##################################################################
 ####################  Setup Training Model  ######################
 ##################################################################
-def load_noise_files():
-    noise_files = librosa.util.find_files('./data/background_noise_files/')
-    music_files = librosa.util.find_files('./data/background_music_files/')
-    np.random.seed(0)
-    noise_files += list(np.random.choice(music_files, 200))
-    noise_signals = audio_utils.parallel_load_audio_batch(
-        noise_files, n_processes=8, sr=sample_rate)
-    noise_signals = [s for s in noise_signals if len(s) > sample_rate]
-    return noise_signals
-
-
-def load_impulse_responses():
-    ir_files = librosa.util.find_files('./data/impulse_responses/')
-    impulse_responses = audio_utils.parallel_load_audio_batch(
-        ir_files, n_processes=8, sr=sample_rate)
-    return impulse_responses
-
-
 def run_training_loop(n_epochs, model, device, checkpoint_dir,
                       optimizer, iterator, log_frequency=25, val_iterator=None, gradient_clip=1.,
                       verbose=True):
