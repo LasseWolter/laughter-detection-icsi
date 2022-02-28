@@ -1,5 +1,8 @@
 model = {
+    # Min-length used for parsing the transcripts
     "min_length": 0.2,
+
+    # Frame duration used for parsing the transcripts
     "frame_duration": 10  # in ms
 }
 
