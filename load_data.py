@@ -43,8 +43,9 @@ def create_inference_dataloader(audio_path):
     # Cut that contains the whole audiofile
     cut_all = cuts[0]
 
-    f2 = Fbank(FbankConfig(num_filters=128, frame_shift=0.02275))
-    feats_all = cut_all.compute_features(f2)
+    extrac = Fbank(FbankConfig(num_filters=40))
+    # f2 = Fbank(FbankConfig(num_filters=128, frame_shift=0.02275))
+    feats_all = cut_all.compute_features(extrac)
 
     # Construct a Pytorch Dataset class for inference using the
     dataset = InferenceDataset(feats_all)
