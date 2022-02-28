@@ -239,7 +239,7 @@ def calc_sum_stats(eval_df):
 
     # New version - calculating metrics once for the whole corpus 
     # - solves problem with different length meetings
-    sum_vals = eval_df.groupby('threshold')['corr_pred_time','tot_pred_time','tot_transc_laugh_time'].agg(['sum']).reset_index()
+    sum_vals = eval_df.groupby('threshold')[['corr_pred_time','tot_pred_time','tot_transc_laugh_time']].agg(['sum']).reset_index()
     sum_vals['precision'] = sum_vals['corr_pred_time'] / sum_vals['tot_pred_time']
     sum_vals['recall'] = sum_vals['corr_pred_time'] / sum_vals['tot_transc_laugh_time']
     sum_stats = sum_vals[['threshold', 'precision', 'recall']]
