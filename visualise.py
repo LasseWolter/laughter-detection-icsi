@@ -57,9 +57,11 @@ def plot_train_metrics(df):
         secax = ax.secondary_xaxis('top', functions=(_to_epoch, _to_batch_num))
         secax.set_xlabel('epochs')
 
+    fig.suptitle('Metrics on train and dev set during training')
+    fig.tight_layout(pad=0.3)
     plt.show()
 
 
 if __name__ == '__main__':
-    metrics_df = pd.read_csv('./train_results/tmp/metrics.csv')
+    metrics_df = pd.read_csv('./train_results/1_to_10_new_val_23_02/metrics.csv')
     plot_train_metrics(metrics_df)
