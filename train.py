@@ -6,7 +6,7 @@
 # python train.py --config=resnet_with_augmentation --batch_size=32 --checkpoint_dir=./checkpoints/resnet_aug_audioset_tst --train_on_noisy_audioset=True
 
 import load_data
-import configs
+import config
 from torch import optim, nn
 import os
 import sys
@@ -116,7 +116,7 @@ parser.add_argument('--train_on_noisy_audioset', type=str, default=None)
 
 args = parser.parse_args()
 
-config = configs.CONFIG_MAP[args.config]
+config = config.MODEL_MAP[args.config]
 checkpoint_dir = args.checkpoint_dir
 data_root = args.data_root
 data_dfs_dir = args.data_dfs_dir

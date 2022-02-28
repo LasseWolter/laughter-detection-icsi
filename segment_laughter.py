@@ -1,7 +1,7 @@
 # Example usage:
 # python segment_laughter.py --input_audio_file=tst_wave.wav --output_dir=./tst_wave --save_to_textgrid=False --save_to_audio_files=True --min_length=0.2 --threshold=0.5
 
-import configs
+import config
 import models
 import time
 from distutils.util import strtobool
@@ -41,7 +41,7 @@ args = parser.parse_args()
 
 
 model_path = args.model_path
-config = configs.CONFIG_MAP[args.config]
+config = config.MODEL_MAP[args.config]
 audio_path = args.input_audio_file
 save_to_audio_files = bool(strtobool(args.save_to_audio_files))
 save_to_textgrid = bool(strtobool(args.save_to_textgrid))
