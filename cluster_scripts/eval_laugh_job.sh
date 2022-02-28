@@ -73,7 +73,7 @@ SCRATCH_HOME=${SCRATCH_DISK}/${USER}
 mkdir -p ${SCRATCH_HOME}
 
 # Activate your conda environment
-CONDA_ENV_NAME=pt
+CONDA_ENV_NAME=pip_kaldi
 echo "Activating conda environment: ${CONDA_ENV_NAME}"
 conda activate ${CONDA_ENV_NAME}
 
@@ -98,7 +98,7 @@ conda activate ${CONDA_ENV_NAME}
 echo "Moving input data to the compute node's scratch space: $SCRATCH_DISK"
 
 # input data directory path on the DFS - change line below if loc different
-repo_home=/home/${USER}/git/laughter-detection
+repo_home=/home/${USER}/git/laughter-detection-icsi
 src_path=${repo_home}/data/icsi/speech/dev
 
 # input data directory path on the scratch disk of the node
@@ -143,7 +143,14 @@ echo "Moving output data back to DFS"
 
 src_path=${SCRATCH_HOME}/icsi/data/eval_output
 dest_path=${repo_home}/eval_output
+
+# Make sure `eval_output` dir exists
+mkdir -p ${dest_path}
 rsync --archive --update --compress --progress ${src_path}/ ${dest_path}
+
+# Clean up scratch disk
+# Delete predictions of this run
+rm ${src_path}/*
 
 
 # =========================
