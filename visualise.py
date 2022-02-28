@@ -2,6 +2,9 @@ from matplotlib import pyplot as plt
 import pandas as pd
 from scipy.interpolate import BSpline, make_interp_spline
 import numpy as np
+import config as cfg
+import os
+from pathlib import Path
 
 def smooth(x, y, num_of_datapoints):
     '''
@@ -14,7 +17,7 @@ def smooth(x, y, num_of_datapoints):
     return(x_new, smooth_y)
 
 
-def plot_train_metrics(df):
+def plot_train_metrics(df, name='metrics_plot', out_dir=cfg.ANALYSIS['plots_dir'], show=False):
     """
     Input: dataframe containing metrics recorded during training
     Plots these metrics against the number of batches to see how precision, recall, accuracy and loss devloped 
@@ -37,7 +40,7 @@ def plot_train_metrics(df):
     def _to_batch_num(x):
         return x* batches_per_epoch 
 
-    fig, axs = plt.subplots(2,2)
+    fig, axs = plt.subplots(2,2, figsize=(15, 10))
 
     
     for split,plt_rep in splits:
@@ -59,9 +62,33 @@ def plot_train_metrics(df):
 
     fig.suptitle('Metrics on train and dev set during training')
     fig.tight_layout(pad=0.3)
-    plt.show()
 
+
+    plots_dir = Path(out_dir)
+    plots_dir.mkdir(parents=True, exist_ok=True)
+    plt.savefig(plots_dir / f'{name}.png')
+
+    if(show): plt.show()
+
+
+def compare_num_of_val_batches():
+    '''
+    Training the same model with varied number of online validation batches evaluated 
+    few_batches_df: 10 batches per validation -> one validation per 200 training batches 
+    more_batches_df: 300 batches per validation -> one validation per 900 training batches
+    '''
+    # Directory for storing plots - create if doesn't exist
+    out_dir = os.path.join(cfg.ANALYSIS['plots_dir'],'compare_batch_num')
+    Path(out_dir).mkdir(parents=True, exist_ok=True)
+
+    # Create visualisation for few and more batches 
+    few_batches_df= pd.read_csv('./results/1_to_10_new_val_23_02/metrics.csv')
+    plot_train_metrics(few_batches_df, name='few_batches_df', out_dir=out_dir)
+
+    more_batches_df = pd.read_csv('./results/1_to_10_23_02/metrics.csv')
+    plot_train_metrics(more_batches_df, name='more_batches_df', out_dir=out_dir)
 
 if __name__ == '__main__':
-    metrics_df = pd.read_csv('./train_results/1_to_10_new_val_23_02/metrics.csv')
-    plot_train_metrics(metrics_df)
+    compare_num_of_val_batches()
+    df = pd.read_csv('./results/1_to_10_new_val_23_02/metrics.csv')
+    plot_train_metrics(df)
