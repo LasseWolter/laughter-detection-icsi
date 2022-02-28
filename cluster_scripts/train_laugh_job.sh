@@ -73,7 +73,7 @@ SCRATCH_HOME=${SCRATCH_DISK}/${USER}
 mkdir -p ${SCRATCH_HOME}
 
 # Activate your conda environment
-CONDA_ENV_NAME=pt
+CONDA_ENV_NAME=pip_kaldi
 echo "Activating conda environment: ${CONDA_ENV_NAME}"
 conda activate ${CONDA_ENV_NAME}
 
@@ -98,7 +98,7 @@ conda activate ${CONDA_ENV_NAME}
 echo "Moving input data to the compute node's scratch space: $SCRATCH_DISK"
 
 # input data directory path on the DFS - change line below if loc different
-repo_home=/home/${USER}/git/laughter-detection/
+repo_home=/home/${USER}/git/laughter-detection-icsi/
 src_path=${repo_home}/data/icsi/feats
 
 # input data directory path on the scratch disk of the node
