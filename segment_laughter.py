@@ -17,7 +17,7 @@ import argparse
 import torch
 import numpy as np
 import pandas as pd
-import scipy
+import scipy.io.wavfile
 from tqdm import tqdm
 import tgt
 import load_data
@@ -25,18 +25,13 @@ sys.path.append('./utils/')
 import torch_utils
 import audio_utils
 
-sample_rate = 8000
-
-thresholds = [0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9]
-min_lengths = [0.2]
-
 parser = argparse.ArgumentParser()
 
 parser.add_argument('--model_path', type=str,
                     default='checkpoints/in_use/resnet_with_augmentation')
 parser.add_argument('--config', type=str, default='resnet_with_augmentation')
-parser.add_argument('--threshold', type=str, default='0.5')
-parser.add_argument('--min_length', type=str, default='0.2')
+parser.add_argument('--thresholds', type=str, default='0.5', help='Single value or comma-separated list of thresholds to evaluate')
+parser.add_argument('--min_lengths', type=str, default='0.2', help='Single value or comma-separated list of min_lengths to evaluate')
 parser.add_argument('--input_audio_file', required=True, type=str)
 parser.add_argument('--output_dir', type=str, default=None)
 parser.add_argument('--save_to_audio_files', type=str, default='True')
@@ -48,11 +43,13 @@ args = parser.parse_args()
 model_path = args.model_path
 config = configs.CONFIG_MAP[args.config]
 audio_path = args.input_audio_file
-threshold = float(args.threshold)
-min_length = float(args.min_length)
 save_to_audio_files = bool(strtobool(args.save_to_audio_files))
 save_to_textgrid = bool(strtobool(args.save_to_textgrid))
 output_dir = args.output_dir
+
+# Turn comma-separated parameter strings into list of floats 
+thresholds = [float(t) for t in args.thresholds.split(',')]
+min_lengths = [float(l) for l in args.min_lengths.split(',')]
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f"Using device {device}")
@@ -61,7 +58,6 @@ print(f"Using device {device}")
 
 model = config['model'](
     dropout_rate=0.0, linear_layer_size=config['linear_layer_size'], filter_sizes=config['filter_sizes'])
-feature_fn = config['feature_fn']
 model.set_device(device)
 
 if os.path.exists(model_path):
