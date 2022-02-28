@@ -150,7 +150,7 @@ rsync --archive --update --compress --progress ${src_path}/ ${dest_path}
 
 # Clean up scratch disk
 # Delete predictions of this run
-rm ${src_path}/*
+rm ${src_path}/* -rf
 
 
 # =========================
