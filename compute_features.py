@@ -20,7 +20,7 @@ USAGE: python compute_features
 '''
 import torch
 from lhotse import CutSet, Fbank, FbankConfig, MonoCut, KaldifeatFbank, KaldifeatFbankConfig
-from lhotse.features.kaldifeat import KaldifeatMelOptions
+from lhotse.features.kaldifeat import KaldifeatMelOptions, KaldifeatFrameOptions
 from lhotse.recipes import prepare_icsi
 from lhotse import SupervisionSegment, SupervisionSet, RecordingSet
 import pandas as pd
@@ -29,8 +29,11 @@ import os
 import subprocess
 import dotenv
 from tqdm import tqdm
+from utils.utils import get_feat_extractor 
+import config as cfg
 
-SPLITS = ['train', 'dev', 'test']
+# SPLITS = ['train', 'dev', 'test']
+SPLITS = ['dev']
 
 
 def create_manifest(audio_dir, transcripts_dir, output_dir, force_manifest_reload=False):
@@ -71,7 +74,7 @@ def compute_features_per_split(icsi_manifest, output_dir, num_jobs=8, use_kaldi=
     feats_dir = os.path.join(output_dir, 'feats')
     cutset_dir = os.path.join(output_dir, 'cutsets')
 
-    if (len(os.listdir(cutset_dir)) > 0):
+    if (not force_recompute and len(os.listdir(cutset_dir)) > 0):
         print('==============================\nFEATURES ALREADY EXIST:')
         print(f'Found features in: "{cutset_dir}"')
         print(f'To force re-computation pass `force_recompute=True`\n')
@@ -79,12 +82,8 @@ def compute_features_per_split(icsi_manifest, output_dir, num_jobs=8, use_kaldi=
 
     subprocess.run(['mkdir', '-p', cutset_dir])
 
-    # Using 100frams and 40bins -> ASR standard
-    extrac = Fbank(FbankConfig(num_filters=40))
-    if (use_kaldi):
-            print('Using Kaldifeat-Extractor...')
-            extrac = KaldifeatFbank(KaldifeatFbankConfig(device='cuda',
-                mel_opts=KaldifeatMelOptions(num_bins=40)))
+    # Create feature extractor (either using GPU or CPU)
+    extractor = get_feat_extractor(num_samples=cfg.FEAT['num_samples'], num_filters=cfg.FEAT['num_filters'], use_kaldi=use_kaldi)
     
     for split in SPLITS:
         # One cutset representing all meetings (with all their channels) from that split
@@ -98,14 +97,15 @@ def compute_features_per_split(icsi_manifest, output_dir, num_jobs=8, use_kaldi=
         torch.set_num_threads(1)
 
         if use_kaldi:
+            # Do feature computation on GPU in batches
             split_feat_cuts = split_cutset.compute_and_store_features_batch(
-                extractor=extrac,
+                extractor=extractor,
                 storage_path=feats_dir,
                 num_workers=num_jobs
             )
         else:
             split_feat_cuts = split_cutset.compute_and_store_features(
-                extractor=extrac,
+                extractor=extractor,
                 storage_path=feats_dir,
                 num_jobs=num_jobs
             )
@@ -279,7 +279,8 @@ def main(env_file='.env'):
     compute_features_per_split(icsi_manifest=icsi_manifest, 
                     output_dir=split_feat_dir,
                     num_jobs=num_jobs,
-                    use_kaldi=use_kaldi)
+                    use_kaldi=use_kaldi, 
+                    force_recompute=True)
 
     compute_features_for_cuts(icsi_manifest=icsi_manifest, 
                     data_dfs_dir=data_dfs_dir,

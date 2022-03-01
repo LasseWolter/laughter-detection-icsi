@@ -9,7 +9,7 @@ MODEL_MAP['resnet_base'] = {
     'batch_size': 32,
     'model': models.ResNetBigger,
     'val_data_text_path': './data/switchboard/val/switchboard_val_data.txt',
-    'log_frequency': 900,
+    'log_frequency': 10,
     'linear_layer_size': 48, # for new features of shape (40,100) 
     # 'linear_layer_size': 64, # original value for features of shape (44,128)
     'filter_sizes': [64,32,16,16],
@@ -22,6 +22,11 @@ MODEL_MAP['resnet_with_augmentation'] = {
     'log_frequency': 200,
     'linear_layer_size': 128,
     'filter_sizes': [128,64,32,32],
+}
+
+FEAT = {
+    "num_samples": 100,
+    "num_filters": 44
 }
 
 ANALYSIS = {

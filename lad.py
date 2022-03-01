@@ -18,6 +18,7 @@ from lhotse.dataset.input_strategies import BatchIO, PrecomputedFeatures
 from lhotse.utils import ifnone
 import torch
 import numpy as np
+import config as cfg
 
 class LadDataset(torch.utils.data.Dataset):
     """
@@ -73,7 +74,7 @@ class InferenceDataset(torch.utils.data.Dataset):
     The PyTorch Dataset for the inference of laughter detection.
     """ 
 
-    def __init__(self, feats, n_frames=100) -> None:
+    def __init__(self, feats, n_frames=cfg.FEAT['num_samples']) -> None:
         super().__init__()
         self.feats = feats # The feature representation for the whole meeting
         self.n_frames = n_frames
@@ -83,8 +84,10 @@ class InferenceDataset(torch.utils.data.Dataset):
 
     def __getitem__(self, index):
         ret = self.feats[index:index+self.n_frames]
-        if ret.shape[0] != 100:
-            pad_amount = 100 - ret.shape[0]
+        # If we get to the end of the audio sample we need to pad to keep 
+        # the sample number at 100
+        if ret.shape[0] != cfg.FEAT['num_samples']:
+            pad_amount = cfg.FEAT['num_samples']- ret.shape[0]
             # zero pad first axis only on the right
             ret = np.pad(ret, ((0,pad_amount), (0,0)))
         return ret 

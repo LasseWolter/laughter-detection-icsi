@@ -3,6 +3,8 @@ from lhotse import CutSet, Fbank, FbankConfig, Recording
 from lhotse.dataset import SingleCutSampler
 from lhotse import RecordingSet
 from lad import LadDataset, InferenceDataset
+from utils.utils import get_feat_extractor
+import config as cfg
 import os
 
 def create_training_dataloader(cutset_dir, split, shuffle=False):
@@ -43,9 +45,9 @@ def create_inference_dataloader(audio_path):
     # Cut that contains the whole audiofile
     cut_all = cuts[0]
 
-    extrac = Fbank(FbankConfig(num_filters=40))
+    extractor = get_feat_extractor(num_samples=cfg.FEAT['num_samples'], num_filters=cfg.FEAT['num_filters'])
     # f2 = Fbank(FbankConfig(num_filters=128, frame_shift=0.02275))
-    feats_all = cut_all.compute_features(extrac)
+    feats_all = cut_all.compute_features(extractor)
 
     # Construct a Pytorch Dataset class for inference using the
     dataset = InferenceDataset(feats_all)
