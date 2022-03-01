@@ -299,9 +299,14 @@ def run_epoch(model, mode, device, iterator, checkpoint_dir, epoch_num, optimize
         raise Exception("`mode` must be 'train' or 'eval'")
 
     if mode.lower() == 'train' and validate_online:
-        #val_batches_per_epoch = torch_utils.num_batches_per_epoch(val_iterator)
-        #val_batches_per_log = int(np.round(val_batches_per_epoch))
-        val_batches_per_log = 300  # TODO hardcoded for now
+        # Calculate the number of validation batches per log such that 
+        # almost the whole validation set is used in one epoch
+        val_batches_per_log = int(iterator.sampler.num_cuts / (batch_size * log_frequency))
+        print(f'Training sampler has {iterator.sampler.num_cuts} batches.')
+        print(f'Validation sampler has {val_iterator.sampler.num_cuts} batches.')
+        print(f'Using batchsize {batch_size}.')
+        print(f'Logging every {log_frequency} batches.')
+        print(f'Evaluting {val_batches_per_log} batches per log.')
         val_itr = iter(val_iterator)
 
     if mode == 'train':
