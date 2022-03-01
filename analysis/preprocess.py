@@ -22,7 +22,7 @@ def seg_invalid(row):
 
 def append_to_index(index, row, meeting_id, part_id):
     '''
-    Append this segment to invalid segments index
+    Append the segment defined by the passed dataframe-row to the passed index
     '''
     start = utils.to_frames(row['start'])
     end = utils.to_frames(row['end'])
