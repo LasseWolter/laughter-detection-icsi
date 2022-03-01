@@ -99,10 +99,10 @@ echo "Moving input data to the compute node's scratch space: $SCRATCH_DISK"
 
 # input data directory path on the DFS - change line below if loc different
 repo_home=/home/${USER}/git/laughter-detection-icsi
-src_path=${repo_home}/data/icsi/speech/dev
+src_path=${repo_home}/data/icsi/speech/all
 
 # input data directory path on the scratch disk of the node
-dest_path=${SCRATCH_HOME}/icsi/data/speech/dev
+dest_path=${SCRATCH_HOME}/icsi/data/speech/all
 mkdir -p ${dest_path}  # make it if required
 
 # Important notes about rsync:
@@ -142,7 +142,7 @@ echo "Command ran successfully!"
 echo "Moving output data back to DFS"
 
 src_path=${SCRATCH_HOME}/icsi/data/eval_output
-dest_path=${repo_home}/eval_output
+dest_path=${repo_home}/eval_output/train
 
 # Make sure `eval_output` dir exists
 mkdir -p ${dest_path}
