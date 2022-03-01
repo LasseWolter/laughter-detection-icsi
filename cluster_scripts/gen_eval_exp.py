@@ -9,6 +9,16 @@ Generate one experiment per line, e.g.:
 import os
 from lxml import etree
 
+# Define split for evaluation (one of 'train', 'dev' and 'test')
+SPLIT='train'
+
+# Copy over all data if train split is used
+# (didn't create an additional train dir to avoid lots of duplicate data)
+# Otherwise only copy dev or test data
+if SPLIT=='train':
+    SPLIT_DIR = 'all'
+else: SPLIT_DIR = SPLIT
+
 # Path of the model's checkpoint 
 MODEL_PATH='checkpoints/icsi_eval'
 
@@ -78,7 +88,7 @@ DATA_HOME = f'{SCRATCH_HOME}/icsi/data'
 base_call = (f"python segment_laughter.py --save_to_textgrid=True --save_to_audio_files=False"
              f" --config={MODEL_CONFIG} --model_path={MODEL_PATH} --thresholds={THRESHOLDS} --min_lengths={MIN_LENGTHS}")
 
-meetings = PARTITIONS['dev'] 
+meetings = PARTITIONS[SPLIT] 
 
 # Parameter settings are set directly in the segment_laughter.file 
 #    - threshholds and min_lengths
@@ -95,13 +105,13 @@ for meeting, chan in audio_tracks:
     print(meeting, chan)
     expt_call = (
         f"{base_call} "
-        f"--input_audio_file={DATA_HOME}/speech/dev/{meeting}/{chan} "
+        f"--input_audio_file={DATA_HOME}/speech/{SPLIT_DIR}/{meeting}/{chan} "
         f"--output_dir={DATA_HOME}/eval_output/{meeting} "
     )
     print(expt_call, file=output_file)
 
 output_file.close()
 
-print(f'Generated {exp_counter} experiments')
+print(f'Generated {exp_counter} experiments for split: {SPLIT}')
 print(f' - {len(meetings)} meetings')
 print(f'    - each with a number of audio channels')
