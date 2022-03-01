@@ -122,7 +122,9 @@ def _get_segment_type(xml_seg) -> Tuple[SegmentType, str]:
         child = children[0]
         if child.tag == "VocalSound":
             if "laugh" in child.get("Description"):
-                if xml_seg.text.strip() == "":
+                # Check that there is no text in any sub-element of this tag
+                # which meant speech occurring next to laughter
+                if "".join(xml_seg.itertext()).strip() == "":
                     seg_type = SegmentType.LAUGH
                     laugh_type = child.get("Description")
                 else:
