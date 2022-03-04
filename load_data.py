@@ -3,9 +3,11 @@ from lhotse import CutSet, Fbank, FbankConfig, Recording
 from lhotse.dataset import SingleCutSampler
 from lhotse import RecordingSet
 from lad import LadDataset, InferenceDataset
-from utils.utils import get_feat_extractor
 import config as cfg
 import os
+import sys
+sys.path.append('./utils/')
+from utils import get_feat_extractor
 
 def create_training_dataloader(cutset_dir, split, shuffle=False):
     '''
