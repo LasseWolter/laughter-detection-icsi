@@ -83,12 +83,10 @@ def compare_num_of_val_batches():
 
     # Create visualisation for few and more batches 
     few_batches_df= pd.read_csv('./results/1_to_10_new_val_23_02/metrics.csv')
-    plot_train_metrics(few_batches_df, name='few_batches_df', out_dir=out_dir)
+    plot_train_metrics(few_batches_df, name='more_batches_df', out_dir=out_dir)
 
     more_batches_df = pd.read_csv('./results/1_to_10_23_02/metrics.csv')
-    plot_train_metrics(more_batches_df, name='more_batches_df', out_dir=out_dir)
+    plot_train_metrics(more_batches_df, name='few_batches_df', out_dir=out_dir)
 
 if __name__ == '__main__':
     compare_num_of_val_batches()
-    df = pd.read_csv('./results/1_to_10_new_val_23_02/metrics.csv')
-    plot_train_metrics(df)
