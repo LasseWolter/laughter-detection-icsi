@@ -301,7 +301,7 @@ def run_epoch(model, mode, device, iterator, checkpoint_dir, epoch_num, optimize
     if mode.lower() == 'train' and validate_online:
         # Calculate the number of validation batches per log such that 
         # almost the whole validation set is used in one epoch
-        validations__per_epoch = int(iterator.sampler.num_cuts / (batch_size * log_frequency))
+        validations__per_epoch = iterator.sampler.num_cuts / (batch_size * log_frequency)
         val_batches_per_log = int(val_iterator.sampler.num_cuts / validations__per_epoch)
         print(f'Training sampler has {iterator.sampler.num_cuts} batches.')
         print(f'Validation sampler has {val_iterator.sampler.num_cuts} batches.')
