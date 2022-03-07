@@ -244,6 +244,9 @@ def calc_sum_stats(eval_df):
     sum_vals['recall'] = sum_vals['corr_pred_time'] / sum_vals['tot_transc_laugh_time']
     sum_stats = sum_vals[['threshold', 'precision', 'recall']]
 
+    # Flatten Multi-index to Single-index
+    sum_stats.columns = sum_stats.columns.map('{0[0]}'.format) 
+
     # Filter thresholds
     # sum_stats = sum_stats[sum_stats['threshold'].isin([0.2,0.4,0.6,0.8])]
     return sum_stats
@@ -484,7 +487,10 @@ def analyse(preds_dir):
     # stats_for_different_min_length(preds_path)
     sum_stats = calc_sum_stats(eval_df)
     print(sum_stats)
-
+    preds_path = Path(preds_dir)
+    split = preds_path.name
+    sum_stats.to_csv((preds_path.parent / f'{split}_eval.csv'), index=False)
+    
     # Create plots for different thresholds
     # for t in [.2, .4, .6, .8]:
     #     plot_aggregated_laughter_length_dist(eval_df, t, save_dir='./imgs/')
