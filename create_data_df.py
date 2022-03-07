@@ -3,7 +3,7 @@ import numpy as np
 import analysis.preprocess as prep
 import analysis.utils as utils
 import portion as P
-import analysis.config as cfg
+from config import ANALYSIS as cfg
 import pandas as pd
 import os
 import subprocess
@@ -35,7 +35,7 @@ def get_random_speech_segment(duration, meeting_id):
     # Don't create speech samples shorter than the sample duration because these would be padded 
     # during feature computation. Doing this for laugh segments makes sense but for speech segments it's better
     # to use longer segments from the start to avoid having lots of silence in both speech and laughter segments
-    duration = max(duration, cfg.train['subsample_duration'])
+    duration = max(duration, cfg['train']['subsample_duration'])
     # Only consider segments with passed meeting_id
     info_df = parse.info_df[parse.info_df.meeting_id == meeting_id]
     # Get segment info for this segment from info_df
@@ -51,7 +51,7 @@ def get_random_speech_segment(duration, meeting_id):
         return get_random_speech_segment(duration, meeting_id)
     else:
         sub_start, sub_duration = get_subsample(
-            start, duration, cfg.train['subsample_duration'])
+            start, duration, cfg['train']['subsample_duration'])
         return [start, duration, sub_start, sub_duration, sample_seg.path, meeting_id, sample_seg.chan_id, 0]
 
 
@@ -79,7 +79,7 @@ def create_data_df(data_dir):
     (see Gillick et al. for more details)
     Duration of the subsamples is defined in config.py
     '''
-    np.random.seed(cfg.train['random_seed'])
+    np.random.seed(cfg['train']['random_seed'])
     speech_seg_lists = {'train': [], 'dev': [], 'test': []}
     laugh_seg_lists = {'train': [], 'dev': [], 'test': []}
 
@@ -104,7 +104,7 @@ def create_data_df(data_dir):
             audio_path = os.path.join(
                 laugh_seg.meeting_id, f'{laugh_seg.chan_id}.sph')
             sub_start, sub_duration = get_subsample(
-                laugh_seg.start, laugh_seg.length, cfg.train['subsample_duration'])
+                laugh_seg.start, laugh_seg.length, cfg['train']['subsample_duration'])
 
             laugh_seg_lists[split].append(
                 [laugh_seg.start, laugh_seg.length, sub_start, sub_duration, audio_path, laugh_seg.meeting_id, laugh_seg.chan_id, 1])

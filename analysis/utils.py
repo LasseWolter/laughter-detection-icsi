@@ -1,4 +1,7 @@
-import analysis.config as cfg
+import sys
+from pathlib import Path
+sys.path.append(str(Path(__file__).parent.parent))
+from config import ANALYSIS as cfg
 import portion as P
 
 
@@ -8,7 +11,7 @@ def to_frames(time_in_sec):
     Frame duration is defined in config
     '''
     # Calculate fps (1000ms/frame_duration)
-    factor = 1000/cfg.model['frame_duration']
+    factor = 1000/cfg['model']['frame_duration']
     return round(time_in_sec*factor)
 
 
@@ -18,7 +21,7 @@ def to_sec(num_of_frames):
     Frame duration is defined in config
     '''
     # Calculate fps (1000ms/frame_duration)
-    factor = 1000/cfg.model['frame_duration']
+    factor = 1000/cfg['model']['frame_duration']
     return num_of_frames/factor
 
 

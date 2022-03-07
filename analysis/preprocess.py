@@ -1,4 +1,7 @@
-import analysis.config as cfg
+import sys
+from pathlib import Path
+sys.path.append(str(Path(__file__).parent.parent))
+from config import ANALYSIS as cfg
 import analysis.utils as utils
 import portion as P
 from analysis.transcript_parsing import parse
@@ -17,7 +20,7 @@ def seg_invalid(row):
     '''
     # If the length is shorter than min_length passed to detection algorithm, mark invalid
     #   - empirically tested -> this doesn't apply to many segments
-    return (row['length'] < cfg.model["min_length"] or row['laugh_type'] == 'breath-laugh')
+    return (row['length'] < cfg['model']["min_length"] or row['laugh_type'] == 'breath-laugh')
 
 
 def append_to_index(index, row, meeting_id, part_id):

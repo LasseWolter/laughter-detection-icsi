@@ -5,7 +5,7 @@ from lxml import etree
 from pathlib import Path
 import sys
 sys.path.append(str(Path(__file__).parent.parent.parent))
-import analysis.config as cfg
+from config import ANALYSIS as cfg
 
 # Using lxml instead of xml.etree.ElementTree because it has full XPath support
 # xml.etree.ElementTree only supports basic XPath syntax
@@ -353,4 +353,4 @@ if __name__ == "__main__":
 # EXECUTED ON IMPORT
 #############################################
 # Parse transcripts on import
-parse_transcripts(cfg.general['transcript_dir'])
+parse_transcripts(cfg['transcript_dir'])

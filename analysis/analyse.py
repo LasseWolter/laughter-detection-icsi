@@ -10,7 +10,7 @@ import portion as P
 import sys
 from pathlib import Path
 sys.path.append(str(Path(__file__).parent.parent))
-import analysis.config as cfg
+from config import ANALYSIS as cfg
 from analysis.transcript_parsing import parse
 import analysis.preprocess as prep
 import analysis.utils as utils
@@ -384,7 +384,7 @@ def plot_agg_pred_time_ratio_dist(df, threshold, save_dir=""):
 ##################################################
 # OTHER
 ##################################################
-MIN_LENGTH = cfg.model['min_length']
+MIN_LENGTH = cfg['model']['min_length']
 
 
 def laugh_df_to_csv(df):
