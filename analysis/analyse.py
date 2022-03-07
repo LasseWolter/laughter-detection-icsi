@@ -489,7 +489,10 @@ def analyse(preds_dir):
     print(sum_stats)
     preds_path = Path(preds_dir)
     split = preds_path.name
-    sum_stats.to_csv((preds_path.parent / f'{split}_eval.csv'), index=False)
+    out_path = (preds_path.parent / f'{split}_eval.csv')
+    sum_stats.to_csv(out_path, index=False)
+    print(f'\nWritten evaluation outputs to: {out_path}')
+
     
     # Create plots for different thresholds
     # for t in [.2, .4, .6, .8]:
