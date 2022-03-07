@@ -2,6 +2,10 @@ from typing import List, Optional, Tuple
 from pydantic import BaseModel
 from strenum import StrEnum
 from lxml import etree
+from pathlib import Path
+import sys
+sys.path.append(str(Path(__file__).parent.parent.parent))
+import analysis.config as cfg
 
 # Using lxml instead of xml.etree.ElementTree because it has full XPath support
 # xml.etree.ElementTree only supports basic XPath syntax
@@ -349,5 +353,4 @@ if __name__ == "__main__":
 # EXECUTED ON IMPORT
 #############################################
 # Parse transcripts on import
-file_path = os.path.join(os.path.dirname(__file__), "data")
-parse_transcripts(file_path)
+parse_transcripts(cfg.general['transcript_dir'])
