@@ -8,6 +8,8 @@ import pandas as pd
 import os
 import subprocess
 
+# Name of the experiment
+NAME = ''
 
 # Taken from lhotse icsi recipe to minimise speaker overlap
 PARTITIONS = {
@@ -149,5 +151,5 @@ def create_data_df(data_dir):
 
 
 if __name__ == "__main__":
-    data_dfs_dir = 'data/icsi/data_dfs'
+    data_dfs_dir = f'data/icsi/data_dfs/{NAME}'
     create_data_df(data_dfs_dir)
