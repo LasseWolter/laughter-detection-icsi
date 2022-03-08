@@ -95,8 +95,8 @@ def create_data_df(data_dir):
         # For each laughter segment get a random speech segment with the same length
         for _, laugh_seg in meeting_laugh_df.iterrows():
             # Get and append random speech segment of same length as current laugh segment
-            # Get 10 speech segment per one laughter segment
-            for _ in range(0, 10):
+            # Get num of speech segment per one laughter segment defined in config.py
+            for _ in range(0, cfg['speech_segs_per_laugh_seg']):
                 speech_seg_lists[split].append(
                     get_random_speech_segment(laugh_seg.length, meeting_id))
 

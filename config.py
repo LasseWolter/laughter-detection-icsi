@@ -53,5 +53,10 @@ ANALYSIS['train'] = {
     # Used in creation of train, val and test df in 'create_data_df'
     "float_decimals": 2,  # number of decimals to round floats to
     # Test uses the remaining fraction
-    "train_val_test_split": [0.8, 0.1]
+    "train_val_test_split": [0.8, 0.1],
+
+    # Determines ratio between speech and laugh segments in train data
+    # 1 means 1 speech segment per laugh segment, 10 means a ratio of 
+    # 10 speech-segments per laugh segment 
+    "speech_segs_per_laugh_seg": 1
 }
