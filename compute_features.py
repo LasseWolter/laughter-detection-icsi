@@ -31,8 +31,7 @@ from tqdm import tqdm
 from utils.utils import get_feat_extractor 
 import config as cfg
 
-# SPLITS = ['train', 'dev', 'test']
-SPLITS = ['dev']
+SPLITS = ['train', 'dev', 'test']
 
 
 def create_manifest(audio_dir, transcripts_dir, output_dir, force_manifest_reload=False):
