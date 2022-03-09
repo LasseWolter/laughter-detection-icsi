@@ -32,7 +32,7 @@ min_lens = [0.2]
 THRESHOLDS=','.join([str(t) for t in thrs])
 MIN_LENGTHS =','.join([str(l) for l in min_lens])
 
-OUTPUT_FILE='eval_exp.txt'
+OUTPUT_FILE='eval_train_exp.txt'
 
 def parse_preambles(filename):
     '''
