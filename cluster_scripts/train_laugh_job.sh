@@ -61,6 +61,9 @@ echo "Setting up bash enviroment"
 # Make available all commands on $PATH as on headnode
 source ~/.bashrc
 
+# Make env variables available in this script
+source ~/home/s1660656/git/laughter-detection-icsi/.env
+
 # Make script bail out after first error
 set -e
 
@@ -97,8 +100,6 @@ conda activate ${CONDA_ENV_NAME}
 
 echo "Moving input data to the compute node's scratch space: $SCRATCH_DISK"
 
-# Make env variables available in this script
-source ../.env
 
 # input data directory path on the DFS - change line below if loc different
 repo_home=/home/${USER}/git/laughter-detection-icsi/
