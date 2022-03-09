@@ -255,21 +255,6 @@ def calc_sum_stats(eval_df):
 ##################################################
 # PLOTS
 ##################################################
-def plot_prec_recall_curve(df):
-    """
-    Input: statistics dataframe across all meetings
-    Plots a precision recall curve for the given dataframe
-    """
-    if 'recall' not in df.columns or 'precision' not in df.columns:
-        raise LookupError(
-            f'Missing precision or recall column in passed dataframe. Found columns: {df.columns}')
-    plt.plot(df['recall'], df['precision'], 'b--')
-    plt.plot(df['recall'], df['precision'], 'ro')
-    plt.ylabel('Precision')
-    plt.xlabel('Recall')
-    plt.show()
-
-
 def plot_aggregated_laughter_length_dist(df, threshold, save_dir=''):
     '''
     Plots histogram of aggregated laughter lengths for predicted and transcribed events
@@ -481,18 +466,22 @@ def analyse(preds_dir):
 
     preds_dir: Path that contains all predicted laughs in separate dirs for each parameter
     '''
+    force_analysis = False
 
-    # Then create or load eval_df -> stats for each meeting
-    eval_df = create_evaluation_df(preds_dir)
-    # stats_for_different_min_length(preds_path)
-    sum_stats = calc_sum_stats(eval_df)
-    print(sum_stats)
     preds_path = Path(preds_dir)
     split = preds_path.name
     out_path = (preds_path.parent / f'{split}_eval.csv')
-    sum_stats.to_csv(out_path, index=False)
-    print(f'\nWritten evaluation outputs to: {out_path}')
-
+    if not force_analysis and os.path.isfile(out_path):
+        print('========================\nLOADING STATS FROM DISK\n')
+        sum_stats = pd.read_csv(out_path)
+    else:
+        # Then create or load eval_df -> stats for each meeting
+        eval_df = create_evaluation_df(preds_dir)
+        # stats_for_different_min_length(preds_path)
+        sum_stats = calc_sum_stats(eval_df)
+        print(sum_stats)
+        sum_stats.to_csv(out_path, index=False)
+        print(f'\nWritten evaluation outputs to: {out_path}')
     
     # Create plots for different thresholds
     # for t in [.2, .4, .6, .8]:
