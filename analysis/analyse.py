@@ -92,6 +92,23 @@ def get_params_from_path(path):
 # ANALYSE
 ##################################################
 
+def seg_index_overlap(index, segment, meeting_id, part_id):
+    '''
+    Returns the time [in s] the passed segment overlaps with the given index
+    Returns 0 if no overlap.
+
+    params: segment: an interval as defined by the portion library
+    '''
+
+    if part_id not in index[meeting_id].keys():
+        # No segments transcribed for this participant => no overlap 
+        return 0
+
+    # Get overlap by taking the intersection (&)
+    overlap = index[meeting_id][part_id] & segment
+    overlap_time = utils.to_sec(utils.p_len(overlap))
+
+    return overlap_time
 
 def laugh_match(pred_laugh, meeting_id, part_id):
     '''
@@ -101,6 +118,7 @@ def laugh_match(pred_laugh, meeting_id, part_id):
     Returns: (time_predicted_correctly, time_predicted_falsely)
     '''
 
+    invalid_mismatch = seg_index_overlap(prep.invalid_index, pred_laugh, meeting_id, part_id)
     if part_id in prep.invalid_index[meeting_id].keys():
         # Remove laughter occurring in mixed settings because we don't evaluate them
         pred_laugh = pred_laugh - prep.invalid_index[meeting_id][part_id]
@@ -111,11 +129,16 @@ def laugh_match(pred_laugh, meeting_id, part_id):
         # No laugh events transcribed for this participant - all false
         return(0, pred_length)
 
-    # Get correct
-    match = prep.laugh_index[meeting_id][part_id] & pred_laugh
-    correct = utils.to_sec(utils.p_len(match))
+    correct = seg_index_overlap(prep.laugh_index, pred_laugh, meeting_id, part_id)
     incorrect = pred_length - correct
-    return(correct, incorrect)
+
+    # Get type of misclassification 
+    speech_mismatch = seg_index_overlap(prep.speech_index, pred_laugh, meeting_id, part_id)
+    silence_mismatch = seg_index_overlap(prep.silence_index, pred_laugh, meeting_id, part_id)
+    noise_mismatch = seg_index_overlap(prep.noise_index, pred_laugh, meeting_id, part_id)
+    remain_mismatch = incorrect - speech_mismatch - silence_mismatch - noise_mismatch
+
+    return(correct, incorrect, speech_mismatch, noise_mismatch, silence_mismatch, remain_mismatch)
 
 
 def eval_preds(pred_per_meeting_df, print_stats=False):
@@ -131,6 +154,13 @@ def eval_preds(pred_per_meeting_df, print_stats=False):
     threshold = pred_per_meeting_df.iloc[0]['threshold']
 
     tot_predicted_time, tot_corr_pred_time, tot_incorr_pred_time = 0, 0, 0
+    # Keep track of types misclassified (False-Positives) times for confusion matrix
+    tot_fp_speech_time = 0
+    tot_fp_noise_time = 0 
+    tot_fp_silence_time = 0 
+    # Catpure mismatched time not falling into any of the classes above
+    tot_fp_remaining_time = 0 
+
     tot_transc_laugh_time = prep.laugh_index[meeting_id]['tot_len']
     num_of_tranc_laughs = parse.laugh_only_df[parse.laugh_only_df['meeting_id']
                                               == meeting_id].shape[0]
@@ -159,9 +189,13 @@ def eval_preds(pred_per_meeting_df, print_stats=False):
             # Append interval to total predicted frames for this participant
             part_pred_frames = part_pred_frames | pred_laugh
 
-        corr, incorr = laugh_match(part_pred_frames, meeting_id, part_id)
+        corr, incorr, speech, noise, silence, remainder = laugh_match(part_pred_frames, meeting_id, part_id)
         tot_corr_pred_time += corr
         tot_incorr_pred_time += incorr
+        tot_fp_speech_time += speech
+        tot_fp_noise_time += noise
+        tot_fp_silence_time += silence
+        tot_fp_remaining_time += remainder
 
     tot_predicted_time = tot_corr_pred_time + tot_incorr_pred_time
     # If there is no predicted laughter time for this meeting -> precision=1
@@ -466,7 +500,7 @@ def analyse(preds_dir):
 
     preds_dir: Path that contains all predicted laughs in separate dirs for each parameter
     '''
-    force_analysis = False
+    force_analysis = True
 
     preds_path = Path(preds_dir)
     split = preds_path.name
