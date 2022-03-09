@@ -1,6 +1,6 @@
 '''
 REQUIREMENTS: 
-    1. `chan_idx_map.pkl` file next to the data_frames in the dataframe folder
+    1. `chan_idx_map.pkl` file in the DATA_DFS_DIR specified in the .env file 
     2. .env file with configs (can be passed to main function) 
 
 This script creates feature representations for audio segments present in a given dataframe
@@ -19,10 +19,9 @@ EXAMPLE .env file:
 USAGE: python compute_features
 '''
 import torch
-from lhotse import CutSet, Fbank, FbankConfig, MonoCut, KaldifeatFbank, KaldifeatFbankConfig
-from lhotse.features.kaldifeat import KaldifeatMelOptions, KaldifeatFrameOptions
+from lhotse import CutSet 
 from lhotse.recipes import prepare_icsi
-from lhotse import SupervisionSegment, SupervisionSet, RecordingSet
+from lhotse import SupervisionSegment, RecordingSet
 import pandas as pd
 import pickle
 import os
@@ -32,7 +31,8 @@ from tqdm import tqdm
 from utils.utils import get_feat_extractor 
 import config as cfg
 
-SPLITS = ['train', 'dev', 'test']
+# SPLITS = ['train', 'dev', 'test']
+SPLITS = ['dev']
 
 
 def create_manifest(audio_dir, transcripts_dir, output_dir, force_manifest_reload=False):
@@ -130,7 +130,7 @@ def compute_features_for_cuts(icsi_manifest, data_dfs_dir, output_dir, split_fea
     # If this changed at some point (which it shouldn't) this file would have to
     # be recreated
     # TODO: find a cleaner way to implement this
-    chan_map_file = open(os.path.join(data_dfs_dir, 'chan_idx_map.pkl'), 'rb')
+    chan_map_file = open(os.getenv('CHAN_IDX_MAP_FILE'), 'rb')
     chan_idx_map = pickle.load(chan_map_file)
 
     # Read data_dfs containing the samples for train,val,test split
@@ -279,7 +279,7 @@ def main(env_file='.env'):
                     output_dir=split_feat_dir,
                     num_jobs=num_jobs,
                     use_kaldi=use_kaldi, 
-                    force_recompute=True)
+                    force_recompute=False)
 
     compute_features_for_cuts(icsi_manifest=icsi_manifest, 
                     data_dfs_dir=data_dfs_dir,

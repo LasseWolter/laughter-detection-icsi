@@ -7,9 +7,7 @@ from config import ANALYSIS as cfg
 import pandas as pd
 import os
 import subprocess
-
-# Name of the experiment
-NAME = ''
+from dotenv import load_dotenv, find_dotenv
 
 # Taken from lhotse icsi recipe to minimise speaker overlap
 PARTITIONS = {
@@ -71,7 +69,7 @@ def get_subsample(start, duration, subsample_duration):
     return subsample_start, sub_dur
 
 
-def create_data_df(data_dir):
+def create_data_df(data_dir, speech_segs_per_laugh_seg):
     '''
     Create 3 dataframes (train,dev,test) with data exactly structured like in the model by Gillick et al.
     Columns:
@@ -98,7 +96,7 @@ def create_data_df(data_dir):
         for _, laugh_seg in meeting_laugh_df.iterrows():
             # Get and append random speech segment of same length as current laugh segment
             # Get num of speech segment per one laughter segment defined in config.py
-            for _ in range(0, cfg['speech_segs_per_laugh_seg']):
+            for _ in range(0, speech_segs_per_laugh_seg):
                 speech_seg_lists[split].append(
                     get_random_speech_segment(laugh_seg.length, meeting_id))
 
@@ -123,7 +121,7 @@ def create_data_df(data_dir):
         laugh_df = pd.DataFrame(laugh_seg_lists[split], columns=cols)
         whole_df = pd.concat([speech_df, laugh_df], ignore_index=True)
         # Round all floats to certain number of decimals (defined in config)
-        whole_df = whole_df.round(cfg.train['float_decimals'])
+        whole_df = whole_df.round(cfg['train']['float_decimals'])
 
         # Make sure there are no negative start times or durations
         assert whole_df[whole_df.start <
@@ -151,5 +149,7 @@ def create_data_df(data_dir):
 
 
 if __name__ == "__main__":
-    data_dfs_dir = f'data/icsi/data_dfs/{NAME}'
-    create_data_df(data_dfs_dir)
+    load_dotenv(find_dotenv('.env'))
+    data_dfs_dir = os.getenv('DATA_DFS_DIR')
+    speech_segs_per_laugh_seg = int(os.getenv('SPEECH_SEGS_PER_LAUGH_SEG'))
+    create_data_df(data_dfs_dir, speech_segs_per_laugh_seg)
