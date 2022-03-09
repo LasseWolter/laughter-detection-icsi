@@ -34,7 +34,11 @@ root_path = Path(__file__).absolute().parent
 ANALYSIS= {
     "transcript_dir": str(root_path / 'data/icsi/transcripts'),
     "speech_dir": str(root_path / 'data/icsi/speech'),
-    "plots_dir": 'plots'
+    "plots_dir": 'plots',
+
+    # Indices are loaded from disk if possible. This option forces re-computation 
+    # If True analyse.py will take a lot longer
+    "force_index_recompute": False
 }
 
 ANALYSIS['model'] = {
