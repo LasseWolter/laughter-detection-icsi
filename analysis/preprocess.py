@@ -6,11 +6,6 @@ import analysis.utils as utils
 import portion as P
 from analysis.transcript_parsing import parse
 
-# The following indices are dicts that contain segments per participant per meeting
-laugh_index = {}         # Index containing all laughter segments
-invalid_index = {}       # Index containing invalid segments
-valid_speech_index = {}  # Index of those intervals containing valid speech
-
 
 def seg_invalid(row):
     '''
@@ -25,7 +20,8 @@ def seg_invalid(row):
 
 def append_to_index(index, row, meeting_id, part_id):
     '''
-    Append the segment defined by the passed dataframe-row to the passed index
+    Append the segment as time-interval (Portion) to the passed index
+    The segment is defined by the passed dataframe-row 
     '''
     start = utils.to_frames(row['start'])
     end = utils.to_frames(row['end'])
@@ -42,10 +38,10 @@ def append_to_index(index, row, meeting_id, part_id):
     return index
 
 
-def create_laugh_index(df):
+def create_laugh_index(df, invalid_index):
     """
-    Creates a laugh_index with all transcribed laughter events
-    per particpant per meeting
+    Creates a laugh_index with all transcribed laughter events per particpant per meeting
+    Invalid index needs to be passed because invalid laughter segments will be added to it
     The segments are stored as disjunction of closed intervals (using portion library)
     dict structure:
     {
@@ -58,11 +54,7 @@ def create_laugh_index(df):
         ...
     }
     """
-    global laugh_index, invalid_index
-
-    if invalid_index == {}:
-        raise RuntimeError(
-            "INVALID_INDEX needs to be created before LAUGH_INDEX")
+    laugh_index = {}
     meeting_groups = df.groupby(['meeting_id'])
 
     for meeting_id, meeting_df in meeting_groups:
@@ -85,12 +77,12 @@ def create_laugh_index(df):
                 laugh_index = append_to_index(
                     laugh_index, row, meeting_id, part_id)
 
+    return laugh_index
 
-def create_invalid_index(df):
-    global invalid_index
+
+def create_index_from_df(df):
     """
-    Creates an invalid_index with all segments invalid for our project
-    e.g. transcribed laughter events occurring next to other sounds
+    Creates an index with all segments defined by the passed dataframe
     The segments are stored as disjunction of closed intervals (using portion library) per participant per meeting
     dict structure (same as laugh_index):
     {
@@ -99,31 +91,44 @@ def create_invalid_index(df):
             tot_events: INT,
             part_id: P.closed(start,end) | P.closed(start,end),
             part_id: P.closed(start,end) | P.closed(start,end)
+            ...
         }
         ...
     }
     """
+    index = {}
     meeting_groups = df.groupby(['meeting_id'])
     for meeting_id, meeting_df in meeting_groups:
-        invalid_index[meeting_id] = {}
-        invalid_index[meeting_id]['tot_len'] = 0
-        invalid_index[meeting_id]['tot_events'] = 0
+        index[meeting_id] = {}
+        index[meeting_id]['tot_len'] = 0
+        index[meeting_id]['tot_events'] = 0
 
         # Ensure rows are sorted by 'start'-time in ascending order
         part_groups = meeting_df.sort_values('start').groupby(['part_id'])
         for part_id, part_df in part_groups:
             for _, row in part_df.iterrows():
-                invalid_index = append_to_index(
-                    invalid_index, row, meeting_id, part_id)
+                index = append_to_index(
+                    index, row, meeting_id, part_id)
+    
+    return index
 
 
-def create_valid_speech_index():
+def get_seg_from_index(index, meeting_id, part_id):
+    ''' 
+    Return index segment for a specific participant of a specific meeting.
+    If meeting_id or part_id don't exist in index, return empty interval
+    ''' 
+    if meeting_id in index.keys():
+        return index[meeting_id].get(part_id, P.empty())
+    return P.empty()
+
+def create_silence_index(laugh_index, invalid_index, noise_index, speech_index):
     # TODO: Not used at the moment
     '''
-    Index of those intervals that contain valid speech.
+    Index of those intervals that contain no transcriptions. 
 
-    Take whole audio files for each participant for each meeting and subtract
-    all laughter and invalid segments.
+    Take whole audio files for each participant for each meeting and subtract all
+    transcribed segments 
     dict_structure (same as laugh_index - without tot_events)
     {
         meeting_id: {
@@ -134,27 +139,33 @@ def create_valid_speech_index():
         ...
     }
     '''
-    global valid_speech_index
+    silence_index = {}
     for _, row in parse.info_df.iterrows():
-        if row.meeting_id not in valid_speech_index.keys():
-            valid_speech_index[row.meeting_id] = {}
+        if row.meeting_id not in silence_index.keys():
+            silence_index[row.meeting_id] = {}
 
         end_frame = utils.to_frames(row.length)
         full_interval = P.closed(0, end_frame)
-        valid_speech = (full_interval
-                        - laugh_index[row.meeting_id].get(row.part_id, P.empty())
-                        - invalid_index[row.meeting_id].get(row.part_id, P.empty()))
-        valid_speech_index[row.meeting_id][row.part_id] = valid_speech
-        valid_speech_index[row.meeting_id]['tot_length'] = utils.p_len(
-            valid_speech)
-
+        silence_seg = (full_interval
+                        - get_seg_from_index(laugh_index, row.meeting_id, row.part_id)
+                        - get_seg_from_index(invalid_index, row.meeting_id, row.part_id)
+                        - get_seg_from_index(speech_index, row.meeting_id, row.part_id)
+                        - get_seg_from_index(noise_index, row.meeting_id, row.part_id))
+        silence_index[row.meeting_id][row.part_id] = silence_seg
+        silence_index[row.meeting_id]['tot_length'] = utils.p_len(
+            silence_seg)
+    
+    return silence_index
 
 #############################################
 # EXECUTED ON IMPORT
 #############################################
 
-# First create invalid index and then laughter index
-# Invalid index needs to be created first since filtered out segments
-# during laugh index creation are added to the invalid index
-create_invalid_index(parse.invalid_df)
-create_laugh_index(parse.laugh_only_df)
+
+# The following indices are dicts that contain segments of a particular type per participant per meeting
+invalid_index = create_index_from_df(parse.invalid_df)
+laugh_index = create_laugh_index(parse.laugh_only_df, invalid_index=invalid_index)
+speech_index = create_index_from_df(parse.speech_df)
+noise_index = create_index_from_df(parse.noise_df)
+
+silence_index = create_silence_index(laugh_index, invalid_index, noise_index, speech_index)

@@ -14,8 +14,12 @@ import pandas as pd
 
 chan_to_part = {}  # index mapping channel to participant per meeting
 part_to_chan = {}  # index mapping participant to channel per meeting
-laugh_only_df = pd.DataFrame()  # dataframe containing transcribed laugh only events
-invalid_df = pd.DataFrame()  # dataframe containing invalid segments
+
+# Dataframes containing different types of segments - one per row
+laugh_only_df = pd.DataFrame()  
+invalid_df = pd.DataFrame() 
+noise_df = pd.DataFrame()    
+speech_df = pd.DataFrame()   
 
 # Dataframe containing total length and audio_path of each channel
 info_df = pd.DataFrame()
