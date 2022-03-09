@@ -70,7 +70,38 @@ def plot_train_metrics(df, name='metrics_plot', out_dir=cfg.ANALYSIS['plots_dir'
 
     if(show): plt.show()
 
+def plot_prec_recall_curve(dfs_with_labels, out_name='prec_recall_curve.png', split='', show=False):
+    """
+    Input: list of tuples of dfs and their labels. 
+    The dfs are metrics dataframes containing precisions and recall across all meetings
+    
+    Plots precision-recall-curves for each dataframe and stores the plot on disk
+    """
+    
+    out_file = os.path.join(cfg.ANALYSIS['plots_dir'], 'prec_recall', f'{split}_{out_name}')
 
+    fig, axs = plt.subplots()
+
+    cols = ['b', 'g', 'r']
+    for idx, (df, label) in enumerate(dfs_with_labels):
+        if 'recall' not in df.columns or 'precision' not in df.columns:
+            raise LookupError(
+                f'Missing precision or recall column in passed dataframe. Found columns: {df.columns}')
+
+        axs.plot(df['recall'], df['precision'], f'{cols[idx]}--', label=label)
+        axs.plot(df['recall'], df['precision'], f'{cols[idx]}o')
+    axs.set_ylabel('Precision')
+    axs.set_xlabel('Recall')
+    axs.legend()
+
+    plt.savefig(out_file)
+    if(show):
+        plt.show()
+
+
+# ============================================
+# EXPERIMENTS 
+# ============================================
 def compare_num_of_val_batches():
     '''
     Training the same model with varied number of online validation batches evaluated 
@@ -88,5 +119,20 @@ def compare_num_of_val_batches():
     more_batches_df = pd.read_csv('./results/1_to_10_23_02/metrics.csv')
     plot_train_metrics(more_batches_df, name='few_batches_df', out_dir=out_dir)
 
+def compare_prec_recall_for_different_training_data():
+    '''
+    Compare the prec-recall curve of different experiments
+    '''
+    df1 = pd.read_csv('./results/1_to_10_23_02/preds/dev_eval.csv')
+    df2 = pd.read_csv('./results/1_to_20_06_03/preds/dev_eval.csv')
+    dfs = [(df1, '1_to_10'), (df2, '1_to_20')]
+    plot_prec_recall_curve(dfs, split='dev',  show=False)
+
+    df1 = pd.read_csv('./results/1_to_10_23_02/preds/train_eval.csv')
+    df2 = pd.read_csv('./results/1_to_20_06_03/preds/train_eval.csv')
+    dfs = [(df1, '1_to_10'), (df2, '1_to_20')]
+    plot_prec_recall_curve(dfs, split='train', show=False)
+
 if __name__ == '__main__':
-    compare_num_of_val_batches()
+    # compare_num_of_val_batches()
+    compare_prec_recall_for_different_training_data()
