@@ -8,6 +8,7 @@ Generate one experiment per line, e.g.:
 """ 
 import os
 from lxml import etree
+import numpy as np
 
 # Define split for evaluation (one of 'train', 'dev' and 'test')
 SPLIT='train'
@@ -26,13 +27,13 @@ MODEL_PATH='checkpoints/icsi_eval'
 MODEL_CONFIG='resnet_base' 
 
 # Settings as numeric list
-thrs = [0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9] 
+thrs = np.linspace(0,1,21).round(2)
 min_lens = [0.2]
 # Comma-separated list of settings to try
 THRESHOLDS=','.join([str(t) for t in thrs])
 MIN_LENGTHS =','.join([str(l) for l in min_lens])
 
-OUTPUT_FILE='eval_train_exp.txt'
+OUTPUT_FILE=f'eval_{SPLIT}_exp.txt'
 
 def parse_preambles(filename):
     '''
