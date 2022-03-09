@@ -72,13 +72,13 @@ def compute_features_per_split(icsi_manifest, output_dir, num_jobs=8, use_kaldi=
     feats_dir = os.path.join(output_dir, 'feats')
     cutset_dir = os.path.join(output_dir, 'cutsets')
 
+    subprocess.run(['mkdir', '-p', cutset_dir])
+
     if (not force_recompute and len(os.listdir(cutset_dir)) > 0):
         print('==============================\nFEATURES ALREADY EXIST:')
         print(f'Found features in: "{cutset_dir}"')
         print(f'To force re-computation pass `force_recompute=True`\n')
         return
-
-    subprocess.run(['mkdir', '-p', cutset_dir])
 
     # Create feature extractor (either using GPU or CPU)
     extractor = get_feat_extractor(num_samples=cfg.FEAT['num_samples'], num_filters=cfg.FEAT['num_filters'], use_kaldi=use_kaldi)
@@ -191,72 +191,6 @@ def compute_features_for_cuts(icsi_manifest, data_dfs_dir, output_dir, split_fea
         cuts = cuts.shuffle()
         cuts_with_feats_file = os.path.join(cutset_dir, f'{split}_cutset_with_feats.jsonl')
         cuts.to_jsonl(cuts_with_feats_file)
-
-    # print('Write cutset_dict to disk...')
-    # with open(os.path.join(cutset_dir, 'cutset_dict_without_feats.pkl'), 'wb') as f:
-    #     pickle.dump(cutset_dict, f)
-
-    # for split, cutset in cutset_dict.items():
-    #     print(f'Computing features for {split}...')
-    #     # Choose frame_shift value to match the hop_length of Gillick et al
-    #     # 0.2275 = 16 000 / 364 -> [frame_rate / hop_length]
-    #     extrac = Fbank(FbankConfig(num_filters=128, frame_shift=0.02275))
-
-    #     if (use_kaldi):
-    #         print('Using Kaldifeat-Extractor...')
-    #         extrac = KaldifeatFbank(KaldifeatFbankConfig(
-    #             mel_opts=KaldifeatMelOptions(num_bins=128)))
-
-    #     # Prevents possible error: 
-    #     # See: https://github.com/lhotse-speech/lhotse/issues/559
-    #     torch.set_num_threads(1)
-
-    #     # File in which the CutSet object (which contains feature metadata) was/will be stored
-    #     cuts_with_feats_file = os.path.join(
-    #         cutset_dir, f'{split}_cutset_with_feats.jsonl')
-
-    #     # If file already exist, load it from disk
-    #     if(os.path.isfile(cuts_with_feats_file) and not force_feature_recompute):
-    #         print("LOADING FEATURES FROM DISK - NOT RECOMPUTING")
-    #         cuts = CutSet.from_jsonl(cuts_with_feats_file)
-    #     else:
-    #         if (use_kaldi):
-    #             cuts = cutset.compute_and_store_features_batch(
-    #                 extractor=extrac,
-    #                 storage_path=feats_dir,
-    #                 num_workers=num_jobs
-    #             )
-    #         else:
-    #             cuts = cutset.compute_and_store_features(
-    #                 extractor=extrac,
-    #                 storage_path=feats_dir,
-    #                 num_jobs=num_jobs
-    #             )
-
-    #         # If padding is added the returned cut is a MixedCut 
-    #         # When features are computed for this MixedCut a MonoCut with no recording attached  
-    #         # is returned (see: https://lhotse.readthedocs.io/en/latest/api.html#lhotse.cut.MixedCut.compute_and_store_features)
-    #         # This is an issue because a supervision_segment still has the recording_id 
-    #         # from the original assignment (which is required for supervision_segment)
-    #         # Thus, we re-attach the correct recording and channel to such cuts
-    #         # Need to do the same thing for the features of such cuts 
-    #         # TODO: Find a better way of doing this
-    #         for i in range(0, len(cuts)):
-    #             if (not cuts[i].has_recording):
-    #                 # Get the recording_id from the supervision segment
-    #                 meeting_id = cuts[i].supervisions[0].recording_id 
-    #                 chan_id = cuts[i].supervisions[0].channel 
-    #                 rec = icsi_manifest[split]['recordings'][meeting_id]
-    #                 cuts[i].recording = rec
-    #                 cuts[i].channel = chan_id
-    #                 cuts[i].features.recording_id = rec.id
-    #                 cuts[i].features.channels = chan_id
-
-    #         # Shuffle cutset for better training. In the data_dfs the rows aren't shuffled.
-    #         # At the top are all speech rows and the bottom all laugh rows
-    #         cuts = cuts.shuffle()
-    #         cuts.to_jsonl(cuts_with_feats_file)
-            
         
 def main(env_file='.env'):
     ''' 
