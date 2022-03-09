@@ -119,7 +119,7 @@ def compare_num_of_val_batches():
     more_batches_df = pd.read_csv('./results/1_to_10_23_02/metrics.csv')
     plot_train_metrics(more_batches_df, name='few_batches_df', out_dir=out_dir)
 
-def compare_prec_recall_for_different_training_data():
+def compare_prec_recall_for_diff_exps():
     '''
     Compare the prec-recall curve of different experiments
     '''
@@ -135,4 +135,4 @@ def compare_prec_recall_for_different_training_data():
 
 if __name__ == '__main__':
     # compare_num_of_val_batches()
-    compare_prec_recall_for_different_training_data()
+    compare_prec_recall_for_diff_exps()
