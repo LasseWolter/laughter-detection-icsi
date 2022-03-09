@@ -129,6 +129,7 @@ num_workers = int(args.num_workers)
 dropout_rate = float(args.dropout_rate)
 gradient_accumulation_steps = int(args.gradient_accumulation_steps)
 metrics_file = os.path.join(checkpoint_dir, 'metrics.csv')
+train_params_file = os.path.join(checkpoint_dir, 'train_params.csv')
 
 # Create checkpoint dir
 Path(checkpoint_dir).mkdir(parents=True, exist_ok=True)
@@ -303,11 +304,22 @@ def run_epoch(model, mode, device, iterator, checkpoint_dir, epoch_num, optimize
         # almost the whole validation set is used in one epoch
         validations__per_epoch = iterator.sampler.num_cuts / (batch_size * log_frequency)
         val_batches_per_log = int(val_iterator.sampler.num_cuts / validations__per_epoch)
+
+        # Create train stats and save to disk
         print(f'Training sampler has {iterator.sampler.num_cuts} batches.')
         print(f'Validation sampler has {val_iterator.sampler.num_cuts} batches.')
         print(f'Using batchsize {batch_size}.')
         print(f'Logging every {log_frequency} batches.')
         print(f'Evaluting {val_batches_per_log} batches per log.')
+        train_params = {
+            'train_samples': [iterator.sampler.num_cuts * batch_size],
+            'val_samples':[val_iterator.sampler.num_cuts * batch_size], 
+            'val_samples_per_log': [val_batches_per_log * batch_size],
+            'log_freq': [log_frequency],
+            'batchsize': [batch_size]
+            }
+        train_params_df = pd.DataFrame(train_params)
+        train_params_df.to_csv(train_params_file, index=False)
         val_itr = iter(val_iterator)
 
     if mode == 'train':
