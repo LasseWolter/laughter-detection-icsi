@@ -259,7 +259,7 @@ def create_evaluation_df(path, use_cache=False):
         print("-----------------------------------------")
         print("NO NEW EVALUATION - USING CACHED VERSION")
         print("-----------------------------------------")
-        eval_df = pd.read_csv('.cache/eval_df.csv')
+        eval_df = pd.read_csv(f'{os.path.dirname(__file__)}/.cache/eval_df.csv')
 
     return eval_df
 
@@ -287,17 +287,34 @@ def calc_sum_stats(eval_df):
     # sum_stats = sum_stats[sum_stats['threshold'].isin([0.2,0.4,0.6,0.8])]
     return sum_stats
 
-def plot_conf_matrix(eval_df):
+def plot_conf_matrix(eval_df, name='conf_matrix', show=False):
     '''
     Calculate and plot confusion matrix across all meetings per parameter set
     '''
-    eval_df = eval_df[eval_df.meeting == 'Bmr021']
     sum_vals = eval_df.groupby('threshold')[['corr_pred_time', 'tot_pred_time', 'tot_transc_laugh_time', 'tot_fp_speech_time', 'tot_fp_noise_time', 'tot_fp_silence_time', 'tot_fp_remaining_time']].agg(['sum']).reset_index()
 
     # Flatten Multi-index to Single-index
     sum_vals.columns = sum_vals.columns.map('{0[0]}'.format) 
 
+    # conf_perc = sum_vals[['corr_pred_time', 'tot_fp_speech_time', 'tot_fp_silence_time', 'tot_fp_noise_time', 'tot_fp_remaining_time' ]]
+    conf_perc = sum_vals[['corr_pred_time', 'tot_fp_speech_time', 'tot_fp_silence_time', 'tot_fp_noise_time']]
+    conf_perc = conf_perc.div(sum_vals['tot_pred_time'], axis=0)
+
+    # labels = ['laugh', 'speech', 'silence', 'noise', 'remainder']
+    labels = ['laugh', 'speech', 'silence', 'noise']
+
+    sns.heatmap(conf_perc, yticklabels=sum_vals['threshold'], xticklabels=labels, annot=True)
+    plt.tight_layout()
+    plot_file = os.path.join(cfg['plots_dir'], 'conf_matrix', f'{name}.png')
+    plt.savefig(plot_file)
+    
+    if show:
+        plt.show()
+
+
+
     print(sum_vals)
+    print(conf_perc)
 
 
 ##################################################
@@ -529,7 +546,7 @@ def analyse(preds_dir):
         sum_stats = calc_sum_stats(eval_df)
         print(sum_stats)
         sum_stats.to_csv(out_path, index=False)
-        plot_conf_matrix(eval_df)
+        plot_conf_matrix(eval_df, name='1_to_1_new')
         print(f'\nWritten evaluation outputs to: {out_path}')
 
     
