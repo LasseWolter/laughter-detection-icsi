@@ -222,7 +222,8 @@ def eval_preds(pred_per_meeting_df, print_stats=False):
               f'Recall: {recall:.4f}\n')
 
     return[meeting_id, threshold, prec, recall, tot_corr_pred_time, tot_predicted_time,
-           tot_transc_laugh_time, num_of_pred_laughs, num_of_VALID_pred_laughs, num_of_tranc_laughs]
+           tot_transc_laugh_time, num_of_pred_laughs, num_of_VALID_pred_laughs, num_of_tranc_laughs, 
+           tot_fp_speech_time, tot_fp_noise_time, tot_fp_silence_time, tot_fp_remaining_time]
 
 def create_evaluation_df(path, use_cache=False):
     """
@@ -245,7 +246,8 @@ def create_evaluation_df(path, use_cache=False):
                     print(f'Meeting:{meeting_path.split("/")[-1]}, Threshold:{threshold}, Min-Length:{min_length}')
 
         cols = ['meeting', 'threshold', 'precision', 'recall',
-                'corr_pred_time', 'tot_pred_time', 'tot_transc_laugh_time', 'num_of_pred_laughs', 'valid_pred_laughs', 'num_of_transc_laughs']
+                'corr_pred_time', 'tot_pred_time', 'tot_transc_laugh_time', 'num_of_pred_laughs', 'valid_pred_laughs', 'num_of_transc_laughs',
+                'tot_fp_speech_time', 'tot_fp_noise_time', 'tot_fp_silence_time', 'tot_fp_remaining_time']
         if len(cols) != len(all_evals[0]):
             raise Exception(
                 f'List returned by eval_preds() has wrong length. Expected length: {len(cols)}. Found: {len(all_evals[0])}.')
@@ -284,6 +286,18 @@ def calc_sum_stats(eval_df):
     # Filter thresholds
     # sum_stats = sum_stats[sum_stats['threshold'].isin([0.2,0.4,0.6,0.8])]
     return sum_stats
+
+def plot_conf_matrix(eval_df):
+    '''
+    Calculate and plot confusion matrix across all meetings per parameter set
+    '''
+    eval_df = eval_df[eval_df.meeting == 'Bmr021']
+    sum_vals = eval_df.groupby('threshold')[['corr_pred_time', 'tot_pred_time', 'tot_transc_laugh_time', 'tot_fp_speech_time', 'tot_fp_noise_time', 'tot_fp_silence_time', 'tot_fp_remaining_time']].agg(['sum']).reset_index()
+
+    # Flatten Multi-index to Single-index
+    sum_vals.columns = sum_vals.columns.map('{0[0]}'.format) 
+
+    print(sum_vals)
 
 
 ##################################################
@@ -515,7 +529,9 @@ def analyse(preds_dir):
         sum_stats = calc_sum_stats(eval_df)
         print(sum_stats)
         sum_stats.to_csv(out_path, index=False)
+        plot_conf_matrix(eval_df)
         print(f'\nWritten evaluation outputs to: {out_path}')
+
     
     # Create plots for different thresholds
     # for t in [.2, .4, .6, .8]:
