@@ -202,5 +202,7 @@ else:
         "silence": silence_index,
     }
 
+    # Create .cache dir if it doesn't exist
+    Path(cache_file).parent.mkdir(parents=True, exist_ok=True)
     with open(cache_file, "wb") as f:
         pickle.dump(mega_index, f)
