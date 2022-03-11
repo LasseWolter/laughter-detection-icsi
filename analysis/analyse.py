@@ -145,11 +145,6 @@ def eval_preds(pred_per_meeting_df, print_stats=False):
     """
     Calculate evaluation metrics for a particular meeting for a certain parameter set
     """
-
-    # If there are no predictions, return []
-    if pred_per_meeting_df.size == 0:
-        return []
-
     meeting_id = pred_per_meeting_df.iloc[0]['meeting_id']
     threshold = pred_per_meeting_df.iloc[0]['threshold']
 
@@ -169,33 +164,35 @@ def eval_preds(pred_per_meeting_df, print_stats=False):
     # Count by
     num_of_VALID_pred_laughs = 0
 
-    # Group predictions by participant
-    group_by_part = pred_per_meeting_df.groupby(['part_id'])
+    if pred_per_meeting_df.size != 0:
 
-    for part_id, part_df in group_by_part:
-        part_pred_frames = P.empty()
-        for _, row in part_df.iterrows():
-            # Create interval representing the predicted laughter defined by this row
-            pred_start_frame = utils.to_frames(row['start'])
-            pred_end_frame = utils.to_frames(row['end'])
-            pred_laugh = P.closed(pred_start_frame, pred_end_frame)
+        # Group predictions by participant
+        group_by_part = pred_per_meeting_df.groupby(['part_id'])
 
-            # If the there are no invalid frames for this participant at all
-            # or if the laugh frame doesn't lie in an invalid section -> increase num of valid predictions
-            if part_id not in prep.invalid_index[meeting_id].keys() or \
-                    not prep.invalid_index[meeting_id][part_id].contains(pred_laugh):
-                num_of_VALID_pred_laughs += 1
+        for part_id, part_df in group_by_part:
+            part_pred_frames = P.empty()
+            for _, row in part_df.iterrows():
+                # Create interval representing the predicted laughter defined by this row
+                pred_start_frame = utils.to_frames(row['start'])
+                pred_end_frame = utils.to_frames(row['end'])
+                pred_laugh = P.closed(pred_start_frame, pred_end_frame)
 
-            # Append interval to total predicted frames for this participant
-            part_pred_frames = part_pred_frames | pred_laugh
+                # If the there are no invalid frames for this participant at all
+                # or if the laugh frame doesn't lie in an invalid section -> increase num of valid predictions
+                if part_id not in prep.invalid_index[meeting_id].keys() or \
+                        not prep.invalid_index[meeting_id][part_id].contains(pred_laugh):
+                    num_of_VALID_pred_laughs += 1
 
-        corr, incorr, speech, noise, silence, remainder = laugh_match(part_pred_frames, meeting_id, part_id)
-        tot_corr_pred_time += corr
-        tot_incorr_pred_time += incorr
-        tot_fp_speech_time += speech
-        tot_fp_noise_time += noise
-        tot_fp_silence_time += silence
-        tot_fp_remaining_time += remainder
+                # Append interval to total predicted frames for this participant
+                part_pred_frames = part_pred_frames | pred_laugh
+
+            corr, incorr, speech, noise, silence, remainder = laugh_match(part_pred_frames, meeting_id, part_id)
+            tot_corr_pred_time += corr
+            tot_incorr_pred_time += incorr
+            tot_fp_speech_time += speech
+            tot_fp_noise_time += noise
+            tot_fp_silence_time += silence
+            tot_fp_remaining_time += remainder
 
     tot_predicted_time = tot_corr_pred_time + tot_incorr_pred_time
     # If there is no predicted laughter time for this meeting -> precision=1
