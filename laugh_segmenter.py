@@ -54,6 +54,16 @@ def lowpass(sig, filter_order=2, cutoff=0.01):
     # Apply the filter
     return(signal.filtfilt(B, A, sig))
 
+def fix_over_underflow(prob):
+    ''' 
+    Fixes probability that is out of the range (0,1) and sets them to
+    1 or slightly larger than 0 because threshold 0 shouldn't rule them out
+
+    '''
+    if prob > 1: return 1
+    if prob < 0: return 0.0000001
+    else: return prob
+    
 
 def get_laughter_instances(probs, thresholds=[0.5], min_lengths=[0.2], fps=100.):
     '''
@@ -72,6 +82,10 @@ def get_laughter_instances(probs, thresholds=[0.5], min_lengths=[0.2], fps=100.)
     for thr, min_l in settings:
         instances = []
         current_list = []
+        probs = list(map(fix_over_underflow, probs))
+        with open(f'{thr}_{audio}_probs.txt', 'w') as f:
+            for p in sorted(probs):
+                f.write(f'{p}\n')
         for i in range(len(probs)):
             # Check if this AND the following frame are laughter
             if np.min(probs[i:i+1]) > thr:
@@ -87,8 +101,12 @@ def get_laughter_instances(probs, thresholds=[0.5], min_lengths=[0.2], fps=100.)
         instances = [frame_span_to_time_span(
             collapse_to_start_and_end_frame(i), fps=fps) for i in instances]
         
+        print(f'{thr} instances before length filter: ')
+        print(len(instances))
         # Filter out those instances that don't meet the min_length
         instances = [inst for inst in instances if inst[1]-inst[0] > min_l]
+        print(f'{thr} instances AFTER length filter: ')
+        print(len(instances))
         instance_dict[(thr,min_l)]= instances
 
     return instance_dict
