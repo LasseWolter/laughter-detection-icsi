@@ -83,9 +83,6 @@ def get_laughter_instances(probs, thresholds=[0.5], min_lengths=[0.2], fps=100.)
         instances = []
         current_list = []
         probs = list(map(fix_over_underflow, probs))
-        with open(f'{thr}_{audio}_probs.txt', 'w') as f:
-            for p in sorted(probs):
-                f.write(f'{p}\n')
         for i in range(len(probs)):
             # Check if this AND the following frame are laughter
             if np.min(probs[i:i+1]) > thr:
