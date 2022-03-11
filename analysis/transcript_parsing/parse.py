@@ -207,7 +207,7 @@ def general_info_to_list(filename, meeting_id):
     general_info_list = []
     tree = etree.parse(filename)
     # Get End-Timestamp of last transcription of the meeting
-    meeting_len = tree.findall("//Segment")[-1].get("EndTime")
+    meeting_len = tree.find("//Transcript").get("EndTime")
     for chan_id, part_id in chan_to_part[meeting_id].items():
         path = os.path.join(meeting_id, f"{chan_id}.sph")
         general_info_list.append([meeting_id, part_id, chan_id, meeting_len, path])

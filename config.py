@@ -38,7 +38,7 @@ ANALYSIS= {
 
     # Indices are loaded from disk if possible. This option forces re-computation 
     # If True analyse.py will take a lot longer
-    "force_index_recompute": False
+    "force_index_recompute": False 
 }
 
 ANALYSIS['model'] = {
@@ -46,7 +46,7 @@ ANALYSIS['model'] = {
     "min_length": 0.2,
 
     # Frame duration used for parsing the transcripts
-    "frame_duration": 10  # in ms
+    "frame_duration": 1  # in ms
 }
 
 ANALYSIS['train'] = {

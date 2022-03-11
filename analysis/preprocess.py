@@ -32,13 +32,16 @@ def append_to_index(index, row, meeting_id, part_id):
     start = utils.to_frames(row["start"])
     end = utils.to_frames(row["end"])
 
+    seg_as_interval = P.openclosed(start,end)
     # Append to existing intervals or create new dict entry
     if part_id in index[meeting_id].keys():
-        index[meeting_id][part_id] = index[meeting_id][part_id] | P.closed(start, end)
+        index[meeting_id][part_id] = index[meeting_id][part_id] | seg_as_interval 
     else:
-        index[meeting_id][part_id] = P.closed(start, end)
+        index[meeting_id][part_id] = seg_as_interval 
+    
+    seg_len = utils.to_sec(utils.p_len(seg_as_interval))
 
-    index[meeting_id]["tot_len"] += row["length"]
+    index[meeting_id]["tot_len"] += seg_len
     index[meeting_id]["tot_events"] += 1
     return index
 
@@ -53,8 +56,8 @@ def create_laugh_index(df, invalid_index):
         meeting_id: {
             tot_len: INT,
             tot_events: INT,
-            part_id: P.closed(start,end) | P.closed(start,end),
-            part_id: P.closed(start,end)| P.closed(start,end)
+            part_id: P.openclosed(start,end) | P.openclosed(start,end),
+            part_id: P.openclosed(start,end)| P.openclosed(start,end)
         }
         ...
     }
@@ -94,8 +97,8 @@ def create_index_from_df(df):
         meeting_id: {
             tot_len: INT,
             tot_events: INT,
-            part_id: P.closed(start,end) | P.closed(start,end),
-            part_id: P.closed(start,end) | P.closed(start,end)
+            part_id: P.openclosed(start,end) | P.openclosed(start,end),
+            part_id: P.openclosed(start,end) | P.openclosed(start,end)
             ...
         }
         ...
@@ -138,8 +141,8 @@ def create_silence_index(laugh_index, invalid_index, noise_index, speech_index):
     {
         meeting_id: {
             tot_len: INT,
-            part_id: P.closed(start,end) | P.closed(start,end),
-            part_id: P.closed(start,end) | P.closed(start,end)
+            part_id: P.openclosed(start,end) | P.openclosed(start,end),
+            part_id: P.openclosed(start,end) | P.openclosed(start,end)
         }
         ...
     }
@@ -150,7 +153,7 @@ def create_silence_index(laugh_index, invalid_index, noise_index, speech_index):
             silence_index[row.meeting_id] = {}
 
         end_frame = utils.to_frames(row.length)
-        full_interval = P.closed(0, end_frame)
+        full_interval = P.openclosed(0, end_frame)
         silence_seg = (
             full_interval
             - get_seg_from_index(laugh_index, row.meeting_id, row.part_id)
@@ -159,7 +162,7 @@ def create_silence_index(laugh_index, invalid_index, noise_index, speech_index):
             - get_seg_from_index(noise_index, row.meeting_id, row.part_id)
         )
         silence_index[row.meeting_id][row.part_id] = silence_seg
-        silence_index[row.meeting_id]["tot_length"] = utils.p_len(silence_seg)
+        silence_index[row.meeting_id]["tot_length"] = utils.to_sec(utils.p_len(silence_seg))
 
     return silence_index
 
@@ -184,6 +187,8 @@ if not force_recompute and os.path.isfile(cache_file):
     speech_index = mega_index['speech']
     silence_index = mega_index['silence']
 else:
+    print('Creating indices from transcripts...')
+    print('(this can take a while)')
     # The following indices are dicts that contain segments of a particular type per participant per meeting
     invalid_index = create_index_from_df(parse.invalid_df)
     laugh_index = create_laugh_index(parse.laugh_only_df, invalid_index=invalid_index)

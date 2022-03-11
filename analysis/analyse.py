@@ -125,12 +125,11 @@ def laugh_match(pred_laugh, meeting_id, part_id):
 
     pred_length = utils.to_sec(utils.p_len(pred_laugh))
 
-    if part_id not in prep.laugh_index[meeting_id].keys():
-        # No laugh events transcribed for this participant - all false
-        return(0, pred_length)
-
-    correct = seg_index_overlap(prep.laugh_index, pred_laugh, meeting_id, part_id)
-    incorrect = pred_length - correct
+    correct = 0 
+    incorrect = pred_length
+    if part_id in prep.laugh_index[meeting_id].keys():
+        correct = seg_index_overlap(prep.laugh_index, pred_laugh, meeting_id, part_id)
+        incorrect = pred_length - correct
 
     # Get type of misclassification 
     speech_mismatch = seg_index_overlap(prep.speech_index, pred_laugh, meeting_id, part_id)
@@ -138,7 +137,9 @@ def laugh_match(pred_laugh, meeting_id, part_id):
     noise_mismatch = seg_index_overlap(prep.noise_index, pred_laugh, meeting_id, part_id)
     remain_mismatch = incorrect - speech_mismatch - silence_mismatch - noise_mismatch
 
-    return(correct, incorrect, speech_mismatch, noise_mismatch, silence_mismatch, remain_mismatch)
+    assert remain_mismatch < 0.001, f"Accumulated false positives don't match the total incorrect time. Difference: {remain_mismatch}"
+
+    return(correct, incorrect, speech_mismatch, noise_mismatch, silence_mismatch)
 
 
 def eval_preds(pred_per_meeting_df, print_stats=False):
@@ -153,8 +154,6 @@ def eval_preds(pred_per_meeting_df, print_stats=False):
     tot_fp_speech_time = 0
     tot_fp_noise_time = 0 
     tot_fp_silence_time = 0 
-    # Catpure mismatched time not falling into any of the classes above
-    tot_fp_remaining_time = 0 
 
     tot_transc_laugh_time = prep.laugh_index[meeting_id]['tot_len']
     num_of_tranc_laughs = parse.laugh_only_df[parse.laugh_only_df['meeting_id']
@@ -175,7 +174,7 @@ def eval_preds(pred_per_meeting_df, print_stats=False):
                 # Create interval representing the predicted laughter defined by this row
                 pred_start_frame = utils.to_frames(row['start'])
                 pred_end_frame = utils.to_frames(row['end'])
-                pred_laugh = P.closed(pred_start_frame, pred_end_frame)
+                pred_laugh = P.openclosed(pred_start_frame, pred_end_frame)
 
                 # If the there are no invalid frames for this participant at all
                 # or if the laugh frame doesn't lie in an invalid section -> increase num of valid predictions
@@ -186,13 +185,12 @@ def eval_preds(pred_per_meeting_df, print_stats=False):
                 # Append interval to total predicted frames for this participant
                 part_pred_frames = part_pred_frames | pred_laugh
 
-            corr, incorr, speech, noise, silence, remainder = laugh_match(part_pred_frames, meeting_id, part_id)
+            corr, incorr, speech, noise, silence =  laugh_match(part_pred_frames, meeting_id, part_id)
             tot_corr_pred_time += corr
             tot_incorr_pred_time += incorr
             tot_fp_speech_time += speech
             tot_fp_noise_time += noise
             tot_fp_silence_time += silence
-            tot_fp_remaining_time += remainder
 
     tot_predicted_time = tot_corr_pred_time + tot_incorr_pred_time
     # If there is no predicted laughter time for this meeting -> precision=1
@@ -220,7 +218,7 @@ def eval_preds(pred_per_meeting_df, print_stats=False):
 
     return[meeting_id, threshold, prec, recall, tot_corr_pred_time, tot_predicted_time,
            tot_transc_laugh_time, num_of_pred_laughs, num_of_VALID_pred_laughs, num_of_tranc_laughs, 
-           tot_fp_speech_time, tot_fp_noise_time, tot_fp_silence_time, tot_fp_remaining_time]
+           tot_fp_speech_time, tot_fp_noise_time, tot_fp_silence_time]
 
 def create_evaluation_df(path, use_cache=False):
     """
@@ -244,7 +242,7 @@ def create_evaluation_df(path, use_cache=False):
 
         cols = ['meeting', 'threshold', 'precision', 'recall',
                 'corr_pred_time', 'tot_pred_time', 'tot_transc_laugh_time', 'num_of_pred_laughs', 'valid_pred_laughs', 'num_of_transc_laughs',
-                'tot_fp_speech_time', 'tot_fp_noise_time', 'tot_fp_silence_time', 'tot_fp_remaining_time']
+                'tot_fp_speech_time', 'tot_fp_noise_time', 'tot_fp_silence_time']
         if len(cols) != len(all_evals[0]):
             raise Exception(
                 f'List returned by eval_preds() has wrong length. Expected length: {len(cols)}. Found: {len(all_evals[0])}.')
@@ -288,16 +286,14 @@ def plot_conf_matrix(eval_df, name='conf_matrix', show=False):
     '''
     Calculate and plot confusion matrix across all meetings per parameter set
     '''
-    sum_vals = eval_df.groupby('threshold')[['corr_pred_time', 'tot_pred_time', 'tot_transc_laugh_time', 'tot_fp_speech_time', 'tot_fp_noise_time', 'tot_fp_silence_time', 'tot_fp_remaining_time']].agg(['sum']).reset_index()
+    sum_vals = eval_df.groupby('threshold')[['corr_pred_time', 'tot_pred_time', 'tot_transc_laugh_time', 'tot_fp_speech_time', 'tot_fp_noise_time', 'tot_fp_silence_time']].agg(['sum']).reset_index()
 
     # Flatten Multi-index to Single-index
     sum_vals.columns = sum_vals.columns.map('{0[0]}'.format) 
 
-    # conf_perc = sum_vals[['corr_pred_time', 'tot_fp_speech_time', 'tot_fp_silence_time', 'tot_fp_noise_time', 'tot_fp_remaining_time' ]]
     conf_perc = sum_vals[['corr_pred_time', 'tot_fp_speech_time', 'tot_fp_silence_time', 'tot_fp_noise_time']]
     conf_perc = conf_perc.div(sum_vals['tot_pred_time'], axis=0)
 
-    # labels = ['laugh', 'speech', 'silence', 'noise', 'remainder']
     labels = ['laugh', 'speech', 'silence', 'noise']
 
     sns.heatmap(conf_perc, yticklabels=sum_vals['threshold'], xticklabels=labels, annot=True)
