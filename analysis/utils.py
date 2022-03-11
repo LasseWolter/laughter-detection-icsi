@@ -30,7 +30,7 @@ def p_len(p_interval):
     Takes an interval of portion's Interval class and returns its (accumulated) length.
     Portion's Interval class includes disjunctions of atomic intervals.
 
-    E.g. p_len( (P.closed(1,3) | P.closed(10,11)) ) = 5
+    E.g. p_len( (P.openclosed(1,3) | P.openclosed(10,11)) ) = 5
     '''
     # Iterate over the (disjunction of) interval(s) with step-size 1
     # Then count the number of elements in the list
