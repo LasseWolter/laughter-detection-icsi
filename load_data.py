@@ -1,5 +1,5 @@
 from torch.utils.data import DataLoader
-from lhotse import CutSet, Fbank, FbankConfig, Recording
+from lhotse import CutSet, Fbank, FbankConfig, Recording, MonoCut
 from lhotse.dataset import SingleCutSampler
 from lhotse import RecordingSet
 from lad import LadDataset, InferenceDataset
@@ -41,15 +41,12 @@ def create_inference_dataloader(audio_path):
     These features are then used to created an Inference Dataset from which the 
     features for small windows can be read one by one
     '''
-    single_rec = Recording.from_file(audio_path)
-    # TODO: Is there a better way then creating a RecordingSet and CutSet with len=1
-    cuts = CutSet.from_manifests(RecordingSet.from_recordings([single_rec]))
-    # Cut that contains the whole audiofile
-    cut_all = cuts[0]
+    rec = Recording.from_file(audio_path)
+    cut = MonoCut(id='inference-cut', start=0.0, duration=rec.duration, channel=0, recording=rec)
 
     extractor = get_feat_extractor(num_samples=cfg.FEAT['num_samples'], num_filters=cfg.FEAT['num_filters'])
     # f2 = Fbank(FbankConfig(num_filters=128, frame_shift=0.02275))
-    feats_all = cut_all.compute_features(extractor)
+    feats_all = cut.compute_features(extractor)
 
     # Construct a Pytorch Dataset class for inference using the
     dataset = InferenceDataset(feats_all)
