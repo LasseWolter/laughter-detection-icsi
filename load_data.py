@@ -2,7 +2,7 @@ from torch.utils.data import DataLoader
 from lhotse import CutSet, Fbank, FbankConfig, Recording, MonoCut
 from lhotse.dataset import SingleCutSampler
 from lhotse import RecordingSet
-from lad import LadDataset, InferenceDataset
+from datasets import LadDataset, InferenceDataset
 import config as cfg
 import os
 import sys
