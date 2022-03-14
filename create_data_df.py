@@ -69,7 +69,7 @@ def get_subsample(start, duration, subsample_duration):
     return subsample_start, sub_dur
 
 
-def create_data_df(data_dir, speech_segs_per_laugh_seg):
+def create_data_df(data_dir, speech_segs_per_laugh_seg, meeting_id=None, chan_id=None):
     '''
     Create 3 dataframes (train,dev,test) with data exactly structured like in the model by Gillick et al.
     Columns:
@@ -83,7 +83,15 @@ def create_data_df(data_dir, speech_segs_per_laugh_seg):
     speech_seg_lists = {'train': [], 'dev': [], 'test': []}
     laugh_seg_lists = {'train': [], 'dev': [], 'test': []}
 
-    meeting_groups = parse.laugh_only_df.groupby('meeting_id')
+    subset_of_laughs = parse.laugh_only_df
+    if meeting_id:
+        df = parse.laugh_only_df
+        if chan_id:
+            subset_of_laughs = df[(df.meeting_id == meeting_id) & (df.chan_id == chan_id)]
+        else:
+            subset_of_laughs = df[(df.meeting_id == meeting_id)]
+
+    meeting_groups = subset_of_laughs.groupby('meeting_id')
 
     for meeting_id, meeting_laugh_df in meeting_groups:
         split = 'train'
