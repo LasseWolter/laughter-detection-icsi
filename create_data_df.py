@@ -145,7 +145,7 @@ def create_data_df(data_dir, speech_segs_per_laugh_seg):
             mismatched_meetings) == 0, f"Found meetings in {split}_df with meeting_id not corresponding to that split, namely: {mismatched_meetings}"
 
         # Save file to disk
-        whole_df.to_csv(os.path.join(data_dir, f'{split}_df.csv'))
+        whole_df.to_csv(os.path.join(data_dir, f'{split}_df.csv'), index=False)
 
 
 if __name__ == "__main__":
