@@ -35,7 +35,7 @@ def textgrid_to_list(full_path, params):
                                          ][params['chan_id']]
             seg_length = interval.xmax - interval.xmin
             interval_list.append([params['meeting_id'], part_id, params['chan_id'], interval.xmin,
-                                  interval.xmax, seg_length, params['threshold'], str(interval.text)])
+                                  interval.xmax, seg_length, params['threshold'], params['min_len'], str(interval.text)])
     return interval_list
 
 
@@ -49,7 +49,7 @@ def textgrid_to_df(file_path):
                                          params)
 
     cols = ['meeting_id', 'part_id', 'chan', 'start',
-            'end', 'length', 'threshold', 'laugh_type']
+            'end', 'length', 'threshold', 'min_len', 'laugh_type']
     df = pd.DataFrame(tot_list, columns=cols)
     return df
 
@@ -73,7 +73,7 @@ def get_params_from_path(path):
             "Did you follow the naming convention for channel .TextGrid-files -> 'chanN.TextGrid'")
 
     params['chan_id'] = chan_id
-    params['min_length'] = params_list[-2]
+    params['min_len'] = params_list[-2]
 
     # Strip the 't_' prefix and turn threshold into float
     thr = params_list[-3].replace('t_', '')
@@ -142,13 +142,10 @@ def laugh_match(pred_laugh, meeting_id, part_id):
     return(correct, incorrect, speech_mismatch, noise_mismatch, silence_mismatch)
 
 
-def eval_preds(pred_per_meeting_df, print_stats=False):
+def eval_preds(pred_per_meeting_df, meeting_id, threshold, min_len, print_stats=False):
     """
     Calculate evaluation metrics for a particular meeting for a certain parameter set
     """
-    meeting_id = pred_per_meeting_df.iloc[0]['meeting_id']
-    threshold = pred_per_meeting_df.iloc[0]['threshold']
-
     tot_predicted_time, tot_corr_pred_time, tot_incorr_pred_time = 0, 0, 0
     # Keep track of types misclassified (False-Positives) times for confusion matrix
     tot_fp_speech_time = 0
@@ -216,7 +213,7 @@ def eval_preds(pred_per_meeting_df, print_stats=False):
               f'Precision: {prec:.4f}\n'
               f'Recall: {recall:.4f}\n')
 
-    return[meeting_id, threshold, prec, recall, tot_corr_pred_time, tot_predicted_time,
+    return[meeting_id, threshold, min_len, prec, recall, tot_corr_pred_time, tot_predicted_time,
            tot_transc_laugh_time, num_of_pred_laughs, num_of_VALID_pred_laughs, num_of_tranc_laughs, 
            tot_fp_speech_time, tot_fp_noise_time, tot_fp_silence_time]
 
@@ -230,17 +227,20 @@ def create_evaluation_df(path, use_cache=False):
         for meeting in os.listdir(path):
             #print(f'Evaluating meeting {meeting}...')
             meeting_path = os.path.join(path, meeting)
+            meeting_id = meeting_path.split("/")[-1]
             for threshold in os.listdir(meeting_path):
                 threshold_dir = os.path.join(meeting_path, threshold)
                 for min_length in os.listdir(threshold_dir):
+                    print(f'Meeting:{meeting_id}, Threshold:{threshold}, Min-Length:{min_length}')
                     textgrid_dir = os.path.join(threshold_dir, min_length)
                     pred_laughs = textgrid_to_df(textgrid_dir)
-                    out = eval_preds(pred_laughs)
+                    thr_val = threshold.replace('t_', '')
+                    min_len_val = min_length.replace('t_', '')
+                    out = eval_preds(pred_laughs, meeting_id, thr_val, min_len_val)
                     all_evals.append(out)
                     # Log progress
-                    print(f'Meeting:{meeting_path.split("/")[-1]}, Threshold:{threshold}, Min-Length:{min_length}')
 
-        cols = ['meeting', 'threshold', 'precision', 'recall',
+        cols = ['meeting', 'threshold', 'min_len', 'precision', 'recall',
                 'corr_pred_time', 'tot_pred_time', 'tot_transc_laugh_time', 'num_of_pred_laughs', 'valid_pred_laughs', 'num_of_transc_laughs',
                 'tot_fp_speech_time', 'tot_fp_noise_time', 'tot_fp_silence_time']
         if len(cols) != len(all_evals[0]):
@@ -270,10 +270,10 @@ def calc_sum_stats(eval_df):
 
     # New version - calculating metrics once for the whole corpus 
     # - solves problem with different length meetings
-    sum_vals = eval_df.groupby('threshold')[['corr_pred_time','tot_pred_time','tot_transc_laugh_time']].agg(['sum']).reset_index()
+    sum_vals = eval_df.groupby(['min_len', 'threshold'])[['corr_pred_time','tot_pred_time','tot_transc_laugh_time']].agg(['sum']).reset_index()
     sum_vals['precision'] = sum_vals['corr_pred_time'] / sum_vals['tot_pred_time']
     sum_vals['recall'] = sum_vals['corr_pred_time'] / sum_vals['tot_transc_laugh_time']
-    sum_stats = sum_vals[['threshold', 'precision', 'recall']]
+    sum_stats = sum_vals[['threshold', 'min_len', 'precision', 'recall']]
 
     # Flatten Multi-index to Single-index
     sum_stats.columns = sum_stats.columns.map('{0[0]}'.format) 
@@ -301,13 +301,10 @@ def plot_conf_matrix(eval_df, name='conf_matrix', show=False):
     plot_file = os.path.join(cfg['plots_dir'], 'conf_matrix', f'{name}.png')
     plt.savefig(plot_file)
     
+    print('\n=======Confusion Matrix========')
+    print(conf_perc)
     if show:
         plt.show()
-
-
-
-    print(sum_vals)
-    print(conf_perc)
 
 
 ##################################################
