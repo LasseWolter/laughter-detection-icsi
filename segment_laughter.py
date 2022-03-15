@@ -127,8 +127,8 @@ def save_instances(instances, output_dir, save_to_audio_files, save_to_textgrid)
         1. as audio file
         2. as textgrid file
     '''
+    os.system(f"mkdir -p {output_dir}")
     if len(instances) > 0:
-        os.system(f"mkdir -p {output_dir}")
         if save_to_audio_files:
             full_res_y, full_res_sr = librosa.load(audio_path, sr=44100)
             wav_paths = []
