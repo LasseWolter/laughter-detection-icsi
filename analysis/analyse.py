@@ -249,7 +249,7 @@ def create_evaluation_df(path, use_cache=False):
         eval_df = pd.DataFrame(all_evals, columns=cols)
         if not os.path.isdir(f'{os.path.dirname(__file__)}/.cache'):
             subprocess.run(['mkdir', '.cache'])
-        eval_df.to_csv('.cache/eval_df.csv', index=False)
+        eval_df.to_csv(f'{os.path.dirname(__file__)}/.cache/eval_df.csv', index=False)
     else:
         print("-----------------------------------------")
         print("NO NEW EVALUATION - USING CACHED VERSION")
@@ -272,6 +272,7 @@ def calc_sum_stats(eval_df):
     # - solves problem with different length meetings
     sum_vals = eval_df.groupby(['min_len', 'threshold'])[['corr_pred_time','tot_pred_time','tot_transc_laugh_time']].agg(['sum']).reset_index()
     sum_vals['precision'] = sum_vals['corr_pred_time'] / sum_vals['tot_pred_time']
+    sum_vals[sum_vals.precision.isnull()] = 1 
     sum_vals['recall'] = sum_vals['corr_pred_time'] / sum_vals['tot_transc_laugh_time']
     sum_stats = sum_vals[['threshold', 'min_len', 'precision', 'recall']]
 
