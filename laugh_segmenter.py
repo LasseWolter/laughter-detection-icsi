@@ -57,11 +57,13 @@ def lowpass(sig, filter_order=2, cutoff=0.01):
 def fix_over_underflow(prob):
     ''' 
     Fixes probability that is out of the range (0,1) and sets them to
+    This seems to be a bug in the code taken from Gillick et al.
     1 or slightly larger than 0 because threshold 0 shouldn't rule them out
 
     '''
     if prob > 1: return 1
-    if prob < 0: return 0.0000001
+    # <= to count also create predictions for threshold=0 when prob is 0
+    if prob <= 0: return 0.0000001
     else: return prob
     
 
