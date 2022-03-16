@@ -11,7 +11,7 @@ from lxml import etree
 import numpy as np
 
 # Define split for evaluation (one of 'train', 'dev' and 'test')
-SPLIT='train'
+SPLIT='dev'
 
 # Copy over all data if train split is used
 # (didn't create an additional train dir to avoid lots of duplicate data)
@@ -27,8 +27,10 @@ MODEL_PATH='checkpoints/icsi_eval'
 MODEL_CONFIG='resnet_base' 
 
 # Settings as numeric list
-thrs = np.linspace(0,1,21).round(2)
-min_lens = [0.2]
+lower_range= np.linspace(0,0.9,19).round(2)
+upper_range = np.linspace(0.91,1,10).round(2)
+thrs = np.concatenate((lower_range,upper_range))
+min_lens = [0,0.1,0.2]
 # Comma-separated list of settings to try
 THRESHOLDS=','.join([str(t) for t in thrs])
 MIN_LENGTHS =','.join([str(l) for l in min_lens])
