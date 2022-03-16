@@ -235,7 +235,7 @@ def create_evaluation_df(path, use_cache=False):
                     textgrid_dir = os.path.join(threshold_dir, min_length)
                     pred_laughs = textgrid_to_df(textgrid_dir)
                     thr_val = threshold.replace('t_', '')
-                    min_len_val = min_length.replace('t_', '')
+                    min_len_val = min_length.replace('l_', '')
                     out = eval_preds(pred_laughs, meeting_id, thr_val, min_len_val)
                     all_evals.append(out)
                     # Log progress
@@ -271,16 +271,19 @@ def calc_sum_stats(eval_df):
     # New version - calculating metrics once for the whole corpus 
     # - solves problem with different length meetings
     sum_vals = eval_df.groupby(['min_len', 'threshold'])[['corr_pred_time','tot_pred_time','tot_transc_laugh_time']].agg(['sum']).reset_index()
+
+    # Flatten Multi-index to Single-index
+    sum_vals.columns = sum_vals.columns.map('{0[0]}'.format) 
+
     sum_vals['precision'] = sum_vals['corr_pred_time'] / sum_vals['tot_pred_time']
-    sum_vals[sum_vals.precision.isnull()] = 1 
+    # If tot_pred_time was zero set precision to 1
+    sum_vals.loc[sum_vals.tot_pred_time == 0, 'precision'] = 1 
+
     sum_vals['recall'] = sum_vals['corr_pred_time'] / sum_vals['tot_transc_laugh_time']
     sum_stats = sum_vals[['threshold', 'min_len', 'precision', 'recall']]
 
-    # Flatten Multi-index to Single-index
-    sum_stats.columns = sum_stats.columns.map('{0[0]}'.format) 
-
     # Filter thresholds
-    # sum_stats = sum_stats[sum_stats['threshold'].isin([0.2,0.4,0.6,0.8])]
+    #sum_stats = sum_stats[sum_stats['threshold'].isin([0.2,0.4,0.6,0.8])]
     return sum_stats
 
 def plot_conf_matrix(eval_df, name='conf_matrix', show=False):
@@ -532,7 +535,7 @@ def analyse(preds_dir):
         sum_stats = pd.read_csv(out_path)
     else:
         # Then create or load eval_df -> stats for each meeting
-        eval_df = create_evaluation_df(preds_dir)
+        eval_df = create_evaluation_df(preds_dir, use_cache=False)
         # stats_for_different_min_length(preds_path)
         sum_stats = calc_sum_stats(eval_df)
         print(sum_stats)
