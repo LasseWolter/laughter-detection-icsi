@@ -29,7 +29,12 @@ import subprocess
 import dotenv
 from tqdm import tqdm
 from utils.utils import get_feat_extractor 
+import analysis.preprocess as prep
+from analysis.transcript_parsing import parse
+from analysis.utils import to_frames
 import config as cfg
+import portion as P
+
 
 SPLITS = ['train', 'dev', 'test']
 
@@ -160,10 +165,7 @@ def compute_features_for_cuts(icsi_manifest, data_dfs_dir, output_dir, split_fea
 
             # Get a cut that represents the subsample from this track 
             row_cut = row_track.truncate(offset=row.sub_start, duration=row.sub_duration).pad(duration=min_seg_duration, preserve_id=True)
-            # rec = icsi_manifest[split]['recordings'][meeting_id]
-            # # Create supervision segment indicating laughter or non-laughter by passing a
-            # # dict to the custom field -> {'is_laugh': 0/1}
-            # # TODO: change duration from hardcoded to a value from a config file
+
             sup = SupervisionSegment(id=f'sup_{row_cut.id}', recording_id=row_cut.recording.id, start=row.sub_start,
                                      duration=min_seg_duration, channel=chan_id, custom={'is_laugh': row.label})
 
@@ -191,6 +193,70 @@ def compute_features_for_cuts(icsi_manifest, data_dfs_dir, output_dir, split_fea
         cuts = cuts.shuffle()
         cuts_with_feats_file = os.path.join(cutset_dir, f'{split}_cutset_with_feats.jsonl')
         cuts.to_jsonl(cuts_with_feats_file)
+
+def compute_features_for_single_audio_track(output_dir, split_feats_dir, meeting_id, channel, split, num_jobs=8, min_seg_duration=1.0, use_kaldi=False ):
+    '''
+    Compute a feature batch that represents the whole meeting in one second batches.
+    '''
+    feats_dir = os.path.join(output_dir, 'feats')
+    cutset_dir = os.path.join(output_dir, 'cutsets')
+    # Create directory for storing lhotse cutsets
+    # Feats dir is automatically created by lhotse
+    subprocess.run(['mkdir', '-p', cutset_dir])
+
+    # Load the channel to id mapping from disk
+    # If this changed at some point (which it shouldn't) this file would have to
+    # be recreated
+    # TODO: find a cleaner way to implement this
+    chan_map_file = open(os.getenv('CHAN_IDX_MAP_FILE'), 'rb')
+    chan_idx_map = pickle.load(chan_map_file)
+
+    split = split 
+    whole_split_cutset = CutSet.from_jsonl(os.path.join(split_feats_dir, 'cutsets', f'{split}_feats.jsonl')) 
+
+
+    meeting_id = meeting_id
+    chan_id = chan_idx_map[meeting_id][channel]
+    # Get track for this particular channel in this meeting
+    # [0] because we know that only one meeting will match this query
+    track_cutsset = whole_split_cutset.filter(lambda c: (c.id.startswith(meeting_id) and c.channel ==chan_id))
+
+    # Get a cut that represents the subsample from this track 
+    track_cuts = track_cutsset.cut_into_windows(duration=min_seg_duration).pad(duration=min_seg_duration, preserve_id=True)
+    cut_list = []
+    for id,cut in enumerate(track_cuts):
+        start_frame = to_frames(cut.start)
+        end_frame = to_frames(cut.end)
+        interval = P.openclosed(start_frame, end_frame)
+        part_id = parse.chan_to_part[meeting_id][channel]
+        print(prep.laugh_index[meeting_id][part_id])
+        print(interval)
+        if interval.overlaps(prep.laugh_index[meeting_id][part_id]): label = 1
+        else: label =0
+        sup = SupervisionSegment(id=f'sup_{id}', recording_id=cut.recording.id, start=cut.start,
+                                     duration=min_seg_duration, channel=chan_id, custom={'is_laugh': label})
+
+        if (cut.duration < min_seg_duration):   # row_cut is a MixedCut
+            # We padded to the right, so [0] will be the MonoCut to which we want to add the supervision
+            # This supervision will then also be the supervision for the MixedCut  
+            cut.tracks[0].cut.supervisions.append(sup)
+        else: # row_cut is a MonoCut
+            cut.supervisions.append(sup)
+        
+        cut_list.append(cut)
+
+
+    # Create the actual cutset for this split
+    cuts = CutSet.from_cuts(cut_list)
+
+    # Shuffle cutset for better training. In the data_dfs the rows aren't shuffled.
+    # At the top are all speech rows and the bottom all laugh rows
+    cuts = cuts.shuffle()
+    cuts_with_feats_file = os.path.join(cutset_dir, f'{split}_cutset_with_feats.jsonl')
+    cuts.to_jsonl(cuts_with_feats_file)
+
+    
+
         
 def main(env_file='.env'):
     ''' 
@@ -222,6 +288,7 @@ def main(env_file='.env'):
                     min_seg_duration=min_seg_duration, 
                     use_kaldi=use_kaldi)
 
+    # compute_features_for_single_audio_track(output_dir, split_feat_dir, meeting_id='Bmr021', channel='chan0', split='dev')
 
 
 if __name__ == "__main__":
