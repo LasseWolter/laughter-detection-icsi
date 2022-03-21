@@ -105,6 +105,7 @@ def create_data_df(data_dir, speech_segs_per_laugh_seg, meeting_id=None, chan_id
     (see Gillick et al. for more details)
     Duration of the subsamples is defined in config.py
     '''
+    print(f'Creating segments and storing them in {data_dir}')
     np.random.seed(cfg['train']['random_seed'])
     non_laugh_seg_list = {'train': [], 'dev': [], 'test': []}
     laugh_seg_lists = {'train': [], 'dev': [], 'test': []}
