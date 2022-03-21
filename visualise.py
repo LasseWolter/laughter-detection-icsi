@@ -4,6 +4,7 @@ from scipy.interpolate import BSpline, make_interp_spline
 import numpy as np
 import config as cfg
 import os
+import seaborn as sns
 from pathlib import Path
 
 def smooth(x, y, num_of_datapoints):
@@ -92,12 +93,51 @@ def plot_prec_recall_curve(dfs_with_labels, out_name='prec_recall_curve.png', sp
         axs.plot(df['recall'], df['precision'], f'{cols[idx]}o')
     axs.set_ylabel('Precision')
     axs.set_xlabel('Recall')
+    axs.set_title(split)
     axs.legend()
 
     plt.savefig(out_file)
     if(show):
         plt.show()
 
+def plot_conf_matrix(eval_df_path, name='conf_matrix', thresholds=[], min_len=None, show=False):
+    '''
+    Calculate and plot confusion matrix across all meetings per parameter set
+    You can specify thresholds(several) and min_len(one) which you want to include
+    If nothing passed, all thresholds and min_lens will be plotted
+    '''
+    path = Path(eval_df_path)
+    split = path.name
+    eval_df = pd.read_csv(path.parent / f"{split}_{cfg.ANALYSIS['eval_df_cache_file']}")
+    sum_vals = eval_df.groupby(['threshold', 'min_len'])[['corr_pred_time', 'tot_pred_time', 'tot_transc_laugh_time', 'tot_fp_speech_time', 'tot_fp_noise_time', 'tot_fp_silence_time']].agg(['sum']).reset_index()
+
+    # Flatten Multi-index to Single-index
+    sum_vals.columns = sum_vals.columns.map('{0[0]}'.format) 
+
+    # Select certain thresholds and min_len if passed
+    if len(thresholds) != 0:
+        sum_vals = sum_vals[sum_vals.threshold.isin(thresholds)]
+    if min_len != None:
+        sum_vals = sum_vals[sum_vals.min_len == min_len]
+
+    print(sum_vals)
+    conf_ratio = sum_vals[['corr_pred_time', 'tot_fp_speech_time', 'tot_fp_silence_time', 'tot_fp_noise_time']].copy()
+    conf_ratio = conf_ratio.div(sum_vals['tot_pred_time'], axis=0)
+    # Set all ratio-vals to 0 if there is no prediction time at all
+    conf_ratio.loc[sum_vals.tot_pred_time == 0.0, ['corr_pred_time', 'tot_fp_speech_time','tot_fp_silence_time', 'tot_fp_noise_time']] = 0 
+
+
+    labels = ['laugh', 'speech', 'silence', 'noise']
+
+    sns.heatmap(conf_ratio, yticklabels=sum_vals['threshold'], xticklabels=labels, annot=True)
+    plt.tight_layout()
+    plot_file = os.path.join(cfg.ANALYSIS['plots_dir'], 'conf_matrix', f'{name}.png')
+    plt.savefig(plot_file)
+    
+    print('\n=======Confusion Matrix========')
+    print(conf_ratio)
+    if show:
+        plt.show()
 
 # ============================================
 # EXPERIMENTS 
@@ -119,20 +159,43 @@ def compare_num_of_val_batches():
     more_batches_df = pd.read_csv('./results/1_to_10_23_02/metrics.csv')
     plot_train_metrics(more_batches_df, name='few_batches_df', out_dir=out_dir)
 
-def compare_prec_recall_for_diff_exps():
+def compare_prec_recall(dirs_with_lables, show=False):
     '''
     Compare the prec-recall curve of different experiments
+    The input should be a list of tuples containing elements of (dir-path, label).
+    Each dir-path needs to be a directory ending in 'pred' containing the predictions for each split 
+    in a subfolder 'train', 'dev' and 'test'
     '''
-    df1 = pd.read_csv('./results/1_to_10_23_02/preds/dev_eval.csv')
-    df2 = pd.read_csv('./results/1_to_20_06_03/preds/dev_eval.csv')
-    dfs = [(df1, '1_to_10'), (df2, '1_to_20')]
-    plot_prec_recall_curve(dfs, split='dev',  show=False)
+    dfs = []
+    split = 'dev'
+    for idx,(dir, label) in enumerate(dirs_with_lables):
+        df = pd.read_csv(f"{dir}/{split}_{cfg.ANALYSIS['sum_stats_cache_file']}")
+        dfs.append((df, label)) 
+    plot_prec_recall_curve(dfs, split=split,  show=show)
 
-    df1 = pd.read_csv('./results/1_to_10_23_02/preds/train_eval.csv')
-    df2 = pd.read_csv('./results/1_to_20_06_03/preds/train_eval.csv')
-    dfs = [(df1, '1_to_10'), (df2, '1_to_20')]
-    plot_prec_recall_curve(dfs, split='train', show=False)
+    dfs = []
+    split = 'train'
+    for idx,(dir, label) in enumerate(dirs_with_lables):
+        df = pd.read_csv(f"{dir}/{split}_{cfg.ANALYSIS['sum_stats_cache_file']}")
+        dfs.append((df, label)) 
+    plot_prec_recall_curve(dfs, split=split,  show=show)
+
+    # df1 = pd.read_csv('./results/1_to_10_23_02/preds/train_eval.csv')
+    # df2 = pd.read_csv('./results/1_to_20_06_03/preds/train_eval.csv')
+    # dfs = [(df1, '1_to_10'), (df2, '1_to_20')]
+    # plot_prec_recall_curve(dfs, split='train', show=False)
 
 if __name__ == '__main__':
     # compare_num_of_val_batches()
-    compare_prec_recall_for_diff_exps()
+
+    # PREC-RECALL
+    dirs = [
+        ('./results/1_to_10_23_02/preds', '1_to_10'),
+        ('./results/1_to_20_06_03/preds', '1_to_20')
+     ]
+    compare_prec_recall(dirs, show=True)
+
+
+    # CONF-MATRIX
+    # thrs = np.linspace(0,1,11).round(2)
+    # plot_conf_matrix('./results/gillick_with_fixed_probs_20_03/sr_8000/preds/dev', 'test', thresholds=thrs, min_len=0.0, show=True)

@@ -217,7 +217,7 @@ def eval_preds(pred_per_meeting_df, meeting_id, threshold, min_len, print_stats=
            tot_transc_laugh_time, num_of_pred_laughs, num_of_VALID_pred_laughs, num_of_tranc_laughs, 
            tot_fp_speech_time, tot_fp_noise_time, tot_fp_silence_time]
 
-def create_evaluation_df(path, use_cache=False):
+def create_evaluation_df(path, out_path, use_cache=False):
     """
     Creates a dataframe summarising evaluation metrics per meeting for each parameter-set
     """
@@ -249,12 +249,12 @@ def create_evaluation_df(path, use_cache=False):
         eval_df = pd.DataFrame(all_evals, columns=cols)
         if not os.path.isdir(f'{os.path.dirname(__file__)}/.cache'):
             subprocess.run(['mkdir', '.cache'])
-        eval_df.to_csv(f'{os.path.dirname(__file__)}/.cache/eval_df.csv', index=False)
+        eval_df.to_csv(out_path, index=False)
     else:
         print("-----------------------------------------")
         print("NO NEW EVALUATION - USING CACHED VERSION")
         print("-----------------------------------------")
-        eval_df = pd.read_csv(f'{os.path.dirname(__file__)}/.cache/eval_df.csv')
+        eval_df = pd.read_csv(out_path)
 
     return eval_df
 
@@ -286,27 +286,40 @@ def calc_sum_stats(eval_df):
     #sum_stats = sum_stats[sum_stats['threshold'].isin([0.2,0.4,0.6,0.8])]
     return sum_stats
 
-def plot_conf_matrix(eval_df, name='conf_matrix', show=False):
+def plot_conf_matrix(eval_df, name='conf_matrix', thresholds=[], min_len=None, show=False):
     '''
     Calculate and plot confusion matrix across all meetings per parameter set
+    You can specify thresholds(several) and min_len(one) which you want to include
+    If nothing passed, all thresholds and min_lens will be plotted
     '''
-    sum_vals = eval_df.groupby('threshold')[['corr_pred_time', 'tot_pred_time', 'tot_transc_laugh_time', 'tot_fp_speech_time', 'tot_fp_noise_time', 'tot_fp_silence_time']].agg(['sum']).reset_index()
+    sum_vals = eval_df.groupby(['threshold', 'min_len'])[['corr_pred_time', 'tot_pred_time', 'tot_transc_laugh_time', 'tot_fp_speech_time', 'tot_fp_noise_time', 'tot_fp_silence_time']].agg(['sum']).reset_index()
 
     # Flatten Multi-index to Single-index
     sum_vals.columns = sum_vals.columns.map('{0[0]}'.format) 
+    print(sum_vals)
 
-    conf_perc = sum_vals[['corr_pred_time', 'tot_fp_speech_time', 'tot_fp_silence_time', 'tot_fp_noise_time']]
-    conf_perc = conf_perc.div(sum_vals['tot_pred_time'], axis=0)
+    # Select certain thresholds and min_len if passed
+    if len(thresholds) != 0:
+        sum_vals = sum_vals[sum_vals.threshold.isin(thresholds)]
+    if min_len != None:
+        sum_vals = sum_vals[sum_vals.min_len == min_len]
+
+    print(sum_vals)
+    conf_ratio = sum_vals[['corr_pred_time', 'tot_fp_speech_time', 'tot_fp_silence_time', 'tot_fp_noise_time']].copy()
+    conf_ratio = conf_ratio.div(sum_vals['tot_pred_time'], axis=0)
+    # Set all ratio-vals to 0 if there is no prediction time at all
+    conf_ratio.loc[sum_vals.tot_pred_time == 0.0, ['corr_pred_time', 'tot_fp_speech_time','tot_fp_silence_time', 'tot_fp_noise_time']] = 0 
+
 
     labels = ['laugh', 'speech', 'silence', 'noise']
 
-    sns.heatmap(conf_perc, yticklabels=sum_vals['threshold'], xticklabels=labels, annot=True)
+    sns.heatmap(conf_ratio, yticklabels=sum_vals['threshold'], xticklabels=labels, annot=True)
     plt.tight_layout()
     plot_file = os.path.join(cfg['plots_dir'], 'conf_matrix', f'{name}.png')
     plt.savefig(plot_file)
     
     print('\n=======Confusion Matrix========')
-    print(conf_perc)
+    print(conf_ratio)
     if show:
         plt.show()
 
@@ -525,23 +538,26 @@ def analyse(preds_dir):
 
     preds_dir: Path that contains all predicted laughs in separate dirs for each parameter
     '''
-    force_analysis = True
+    force_analysis = True 
 
     preds_path = Path(preds_dir)
     split = preds_path.name
-    out_path = (preds_path.parent / f'{split}_eval.csv')
-    if not force_analysis and os.path.isfile(out_path):
+    sum_stats_out_path = (preds_path.parent / f'{split}_eval.csv')
+    eval_df_out_path = (preds_path.parent / f"{split}_{cfg['eval_df_cache_file']}")
+    if not force_analysis and os.path.isfile(sum_stats_out_path):
         print('========================\nLOADING STATS FROM DISK\n')
-        sum_stats = pd.read_csv(out_path)
+        sum_stats = pd.read_csv(sum_stats_out_path)
     else:
         # Then create or load eval_df -> stats for each meeting
-        eval_df = create_evaluation_df(preds_dir, use_cache=False)
+        eval_df = create_evaluation_df(preds_dir, eval_df_out_path, use_cache=True)
         # stats_for_different_min_length(preds_path)
         sum_stats = calc_sum_stats(eval_df)
         print(sum_stats)
-        sum_stats.to_csv(out_path, index=False)
-        plot_conf_matrix(eval_df, name='1_to_1_new')
-        print(f'\nWritten evaluation outputs to: {out_path}')
+        sum_stats.to_csv(sum_stats_out_path, index=False)
+        print(f'\nWritten evaluation outputs to: {sum_stats_out_path}')
+        selected_thresholds = np.linspace(0,1,11).round(2)
+        # plot_conf_matrix(eval_df, name='1_to_1_new', thresholds=selected_thresholds, min_len=0.0)
+
 
     
     # Create plots for different thresholds

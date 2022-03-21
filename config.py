@@ -35,6 +35,8 @@ ANALYSIS= {
     "transcript_dir": str(root_path / 'data/icsi/transcripts'),
     "speech_dir": str(root_path / 'data/icsi/speech'),
     "plots_dir": 'plots',
+    "eval_df_cache_file": "eval_df_per_meeting.csv",
+    "sum_stats_cache_file": "sum_stats.csv",
 
     # Indices are loaded from disk if possible. This option forces re-computation 
     # If True analyse.py will take a lot longer
