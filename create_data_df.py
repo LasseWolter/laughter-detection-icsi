@@ -6,6 +6,8 @@ import portion as P
 from config import ANALYSIS as cfg
 import pandas as pd
 import os
+import math
+from tqdm import tqdm
 import subprocess
 from dotenv import load_dotenv, find_dotenv
 
@@ -27,9 +29,9 @@ PARTITIONS = {
 }
 
 
-def get_random_speech_segment(duration, meeting_id):
+def get_random_non_laughter_segment(duration, meeting_id, silence=False):
     '''
-    Get a random speech segment from any channel in the passed meeting
+    Get a random non-laughter segment from any channel in the passed meeting
     If there is an overlap between this segment and laughter/invalid regions, resample
     '''
     # Don't create speech samples shorter than the sample duration because these would be padded 
@@ -45,14 +47,38 @@ def get_random_speech_segment(duration, meeting_id):
     start = np.random.uniform(0, sample_seg.length-duration)
     speech_seg = P.closed(utils.to_frames(
         start), utils.to_frames(start+duration))
+    
+    if silence and not prep.silence_index[meeting_id][sample_seg.part_id].contains(speech_seg):
+        return get_random_non_laughter_segment(duration, meeting_id, silence=True)
+    elif (utils.seg_overlaps(speech_seg, [prep.laugh_index, prep.invalid_index], sample_seg.meeting_id, sample_seg.part_id)):
+        # If segment overlaps with any laughter or invalid segment, resample
+        return get_random_non_laughter_segment(duration, meeting_id)
 
-    # If segment overlaps with any laughter or invalid segment, resample
-    if (utils.seg_overlaps(speech_seg, [prep.laugh_index, prep.invalid_index], sample_seg.meeting_id, sample_seg.part_id)):
-        return get_random_speech_segment(duration, meeting_id)
-    else:
-        sub_start, sub_duration = get_subsample(
-            start, duration, cfg['train']['subsample_duration'])
-        return [start, duration, sub_start, sub_duration, sample_seg.path, meeting_id, sample_seg.chan_id, 0]
+    sub_start, sub_duration = get_subsample(
+        start, duration, cfg['train']['subsample_duration'])
+    
+    # sanity check
+    if silence:
+        assert prep.silence_index[meeting_id][sample_seg.part_id].contains(speech_seg), "Randomly selected silence segment not contained in silence index."
+    return [start, duration, sub_start, sub_duration, sample_seg.path, meeting_id, sample_seg.chan_id, 0]
+
+def get_random_segment_from_df(duration, meeting_id, df):
+    '''
+    Get random segment from the passed df. This df should be one of noise_df, speech_df and silence_df.
+    '''
+    # Don't create speech samples shorter than the sample duration because these would be padded 
+    # during feature computation. Doing this for laugh segments makes sense but for speech segments it's better
+    # to use longer segments from the start to avoid having lots of silence in both speech and laughter segments 
+    duration = max(duration, cfg['train']['subsample_duration'])
+
+    # Only consider segments with passed meeting_id 
+    df_for_meeting = df[df.meeting_id == meeting_id]
+    row = df_for_meeting.sample(n=1).iloc[0]
+    audio_path = f'{row.meeting_id}/{row.chan_id}.sph'
+
+    sub_start, sub_duration = get_subsample(row.start, row.length, cfg['train']['subsample_duration'])
+
+    return [row.start, row.length, sub_start, sub_duration, audio_path, meeting_id, row.chan_id, 0]
 
 
 def get_subsample(start, duration, subsample_duration):
@@ -69,7 +95,7 @@ def get_subsample(start, duration, subsample_duration):
     return subsample_start, sub_dur
 
 
-def create_data_df(data_dir, speech_segs_per_laugh_seg, meeting_id=None, chan_id=None):
+def create_data_df(data_dir, speech_segs_per_laugh_seg, meeting_id=None, chan_id=None, random=False):
     '''
     Create 3 dataframes (train,dev,test) with data exactly structured like in the model by Gillick et al.
     Columns:
@@ -80,7 +106,7 @@ def create_data_df(data_dir, speech_segs_per_laugh_seg, meeting_id=None, chan_id
     Duration of the subsamples is defined in config.py
     '''
     np.random.seed(cfg['train']['random_seed'])
-    speech_seg_lists = {'train': [], 'dev': [], 'test': []}
+    non_laugh_seg_list = {'train': [], 'dev': [], 'test': []}
     laugh_seg_lists = {'train': [], 'dev': [], 'test': []}
 
     subset_of_laughs = parse.laugh_only_df
@@ -93,7 +119,17 @@ def create_data_df(data_dir, speech_segs_per_laugh_seg, meeting_id=None, chan_id
 
     meeting_groups = subset_of_laughs.groupby('meeting_id')
 
-    for meeting_id, meeting_laugh_df in meeting_groups:
+    if not random:
+        silence_segs = math.floor(speech_segs_per_laugh_seg * 0.1)
+        noise_segs = math.floor(speech_segs_per_laugh_seg * 0.2)
+        speech_segs = speech_segs_per_laugh_seg - silence_segs - noise_segs
+        print(f'Sampling {speech_segs} speech segments per laughter-segment...')
+        print(f'Sampling {noise_segs} noise segments per laughter-segment...')
+        print(f'Sampling {silence_segs} silence segments per laughter-segment...')
+    else: 
+        print(f'Randomly selecting {speech_segs_per_laugh_seg} non-laughter segments per laughter segment')
+
+    for meeting_id, meeting_laugh_df in tqdm(meeting_groups, desc='Sampling segments for each meeting'):
         split = 'train'
         if meeting_id in PARTITIONS['dev']:
             split = 'dev'
@@ -104,9 +140,21 @@ def create_data_df(data_dir, speech_segs_per_laugh_seg, meeting_id=None, chan_id
         for _, laugh_seg in meeting_laugh_df.iterrows():
             # Get and append random speech segment of same length as current laugh segment
             # Get num of speech segment per one laughter segment defined in config.py
-            for _ in range(0, speech_segs_per_laugh_seg):
-                speech_seg_lists[split].append(
-                    get_random_speech_segment(laugh_seg.length, meeting_id))
+            if random:  
+                for _ in range(0, speech_segs_per_laugh_seg):
+                    non_laugh_seg_list[split].append(
+                        get_random_non_laughter_segment(laugh_seg.length, meeting_id))
+            else: 
+                for _ in range(0, speech_segs):
+                    non_laugh_seg_list[split].append(
+                        get_random_segment_from_df(laugh_seg.length, meeting_id, df=parse.speech_df))
+                for _ in range(0, noise_segs):
+                    non_laugh_seg_list[split].append(
+                        get_random_segment_from_df(laugh_seg.length, meeting_id, df=parse.speech_df))
+                for _ in range(0, silence_segs):
+                    non_laugh_seg_list[split].append(
+                        get_random_non_laughter_segment(laugh_seg.length, meeting_id, silence=True))
+
 
             # Subsample laugh segment and append to list
             audio_path = os.path.join(
@@ -125,7 +173,7 @@ def create_data_df(data_dir, speech_segs_per_laugh_seg, meeting_id=None, chan_id
     subprocess.run(['mkdir', '-p', data_dir])
 
     for split in PARTITIONS.keys():  # [train,,test]
-        speech_df = pd.DataFrame(speech_seg_lists[split], columns=cols)
+        speech_df = pd.DataFrame(non_laugh_seg_list[split], columns=cols)
         laugh_df = pd.DataFrame(laugh_seg_lists[split], columns=cols)
         whole_df = pd.concat([speech_df, laugh_df], ignore_index=True)
         # Round all floats to certain number of decimals (defined in config)
@@ -160,4 +208,5 @@ if __name__ == "__main__":
     load_dotenv(find_dotenv('.env'))
     data_dfs_dir = os.getenv('DATA_DFS_DIR')
     speech_segs_per_laugh_seg = int(os.getenv('SPEECH_SEGS_PER_LAUGH_SEG'))
+    random_segment_selection = os.getenv('RANDOM_SELECTION') == 'True'
     create_data_df(data_dfs_dir, speech_segs_per_laugh_seg)
