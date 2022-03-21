@@ -104,7 +104,8 @@ def load_and_pred(audio_path):
 
     fps = len(probs)/float(file_length)
 
-    probs = laugh_segmenter.lowpass(probs)
+    # Removed because it can output probs < 0
+    # probs = laugh_segmenter.lowpass(probs)
 
     # Get a list of instance for each setting passed in  
     instance_dict = laugh_segmenter.get_laughter_instances(

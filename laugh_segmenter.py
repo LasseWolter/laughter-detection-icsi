@@ -61,9 +61,13 @@ def fix_over_underflow(prob):
     1 or slightly larger than 0 because threshold 0 shouldn't rule them out
 
     '''
-    if prob > 1: return 1
+    if prob > 1: 
+        print('WARN: Fixed probability > 1')
+        return 1
     # <= to count also create predictions for threshold=0 when prob is 0
-    if prob <= 0: return 0.0000001
+    if prob <= 0: 
+        print('WARN: Fixed probability <= 0')
+        return 0.0000001
     else: return prob
     
 
@@ -100,12 +104,8 @@ def get_laughter_instances(probs, thresholds=[0.5], min_lengths=[0.2], fps=100.)
         instances = [frame_span_to_time_span(
             collapse_to_start_and_end_frame(i), fps=fps) for i in instances]
         
-        print(f'{thr} instances before length filter: ')
-        print(len(instances))
         # Filter out those instances that don't meet the min_length
         instances = [inst for inst in instances if inst[1]-inst[0] > min_l]
-        print(f'{thr} instances AFTER length filter: ')
-        print(len(instances))
         instance_dict[(thr,min_l)]= instances
 
     return instance_dict
