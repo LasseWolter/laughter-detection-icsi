@@ -197,6 +197,9 @@ def compute_features_for_cuts(icsi_manifest, data_dfs_dir, output_dir, split_fea
 def compute_features_for_single_audio_track(output_dir, split_feats_dir, meeting_id, channel, split, num_jobs=8, min_seg_duration=1.0, use_kaldi=False ):
     '''
     Compute a feature batch that represents the whole meeting in one second batches.
+    Stores the output as dev and train features to allow for training with online validation 
+    using the same features for training and online validation
+    - split: the split in which this meeting is located 
     '''
     feats_dir = os.path.join(output_dir, 'feats')
     cutset_dir = os.path.join(output_dir, 'cutsets')
@@ -234,7 +237,7 @@ def compute_features_for_single_audio_track(output_dir, split_feats_dir, meeting
         sup = SupervisionSegment(id=f'sup_{id}', recording_id=cut.recording.id, start=cut.start,
                                      duration=min_seg_duration, channel=chan_id, custom={'is_laugh': label})
 
-        if (cut.duration < min_seg_duration):   # row_cut is a MixedCut
+        if (hasattr(cut, 'tracks')):   # row_cut is a MixedCut
             # We padded to the right, so [0] will be the MonoCut to which we want to add the supervision
             # This supervision will then also be the supervision for the MixedCut  
             cut.tracks[0].cut.supervisions.append(sup)
@@ -250,7 +253,10 @@ def compute_features_for_single_audio_track(output_dir, split_feats_dir, meeting
     # Shuffle cutset for better training. In the data_dfs the rows aren't shuffled.
     # At the top are all speech rows and the bottom all laugh rows
     cuts = cuts.shuffle()
-    cuts_with_feats_file = os.path.join(cutset_dir, f'{split}_cutset_with_feats.jsonl')
+
+    # Store as dev and train to use it for both
+    cuts_with_feats_file = os.path.join(cutset_dir, f'dev_cutset_with_feats.jsonl')
+    cuts_with_feats_file = os.path.join(cutset_dir, f'train_cutset_with_feats.jsonl')
     cuts.to_jsonl(cuts_with_feats_file)
 
     
@@ -278,15 +284,15 @@ def main(env_file='.env'):
                     use_kaldi=use_kaldi, 
                     force_recompute=False)
 
-    compute_features_for_cuts(icsi_manifest=icsi_manifest, 
-                    data_dfs_dir=data_dfs_dir,
-                    output_dir=output_dir,
-                    split_feats_dir=split_feat_dir,
-                    num_jobs=num_jobs,
-                    min_seg_duration=min_seg_duration, 
-                    use_kaldi=use_kaldi)
+    # compute_features_for_cuts(icsi_manifest=icsi_manifest, 
+    #                 data_dfs_dir=data_dfs_dir,
+    #                 output_dir=output_dir,
+    #                 split_feats_dir=split_feat_dir,
+    #                 num_jobs=num_jobs,
+    #                 min_seg_duration=min_seg_duration, 
+    #                 use_kaldi=use_kaldi)
 
-    # compute_features_for_single_audio_track(output_dir, split_feat_dir, meeting_id='Bmr021', channel='chan0', split='dev')
+    compute_features_for_single_audio_track(output_dir, split_feat_dir, meeting_id='Bmr021', channel='chan0', split='dev')
 
 
 if __name__ == "__main__":
