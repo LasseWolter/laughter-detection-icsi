@@ -238,13 +238,13 @@ def compute_features_for_single_audio_track(output_dir, split_feats_dir, meeting
                                      duration=min_seg_duration, channel=chan_id, custom={'is_laugh': label})
 
         if (hasattr(cut, 'tracks')):   # row_cut is a MixedCut
-            # We padded to the right, so [0] will be the MonoCut to which we want to add the supervision
-            # This supervision will then also be the supervision for the MixedCut  
-            cut.tracks[0].cut.supervisions.append(sup)
+            # this should only be the very last cut
+            # just don't add it to the cut_list
+            continue
         else: # row_cut is a MonoCut
             cut.supervisions.append(sup)
+            cut_list.append(cut)
         
-        cut_list.append(cut)
 
 
     # Create the actual cutset for this split
