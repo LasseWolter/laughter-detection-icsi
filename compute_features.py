@@ -229,8 +229,6 @@ def compute_features_for_single_audio_track(output_dir, split_feats_dir, meeting
         end_frame = to_frames(cut.end)
         interval = P.openclosed(start_frame, end_frame)
         part_id = parse.chan_to_part[meeting_id][channel]
-        print(prep.laugh_index[meeting_id][part_id])
-        print(interval)
         if interval.overlaps(prep.laugh_index[meeting_id][part_id]): label = 1
         else: label =0
         sup = SupervisionSegment(id=f'sup_{id}', recording_id=cut.recording.id, start=cut.start,
