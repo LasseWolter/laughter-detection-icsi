@@ -255,9 +255,10 @@ def compute_features_for_single_audio_track(output_dir, split_feats_dir, meeting
     cuts = cuts.shuffle()
 
     # Store as dev and train to use it for both
-    cuts_with_feats_file = os.path.join(cutset_dir, f'dev_cutset_with_feats.jsonl')
-    cuts_with_feats_file = os.path.join(cutset_dir, f'train_cutset_with_feats.jsonl')
-    cuts.to_jsonl(cuts_with_feats_file)
+    cuts_with_feats_file_dev = os.path.join(cutset_dir, f'dev_cutset_with_feats.jsonl')
+    cuts_with_feats_file_train = os.path.join(cutset_dir, f'train_cutset_with_feats.jsonl')
+    cuts.to_jsonl(cuts_with_feats_file_dev)
+    cuts.to_jsonl(cuts_with_feats_file_train)
 
     
 
