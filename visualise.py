@@ -18,15 +18,16 @@ def smooth(x, y, num_of_datapoints):
     return(x_new, smooth_y)
 
 
-def plot_train_metrics(df, name='metrics_plot', out_dir=cfg.ANALYSIS['plots_dir'], show=False):
+def plot_train_metrics(df_path, name='metrics_plot', out_dir=cfg.ANALYSIS['plots_dir'], show=False):
     """
-    Input: dataframe containing metrics recorded during training
+    Input: path to a .csv-file representing metrics recorded during training
     Plots these metrics against the number of batches to see how precision, recall, accuracy and loss devloped 
 
     Columns of df are expected to be:
     [ batch_num,train_prec,train_rec,train_acc,train_loss,val_prec,val_rec,val_acc,val_loss ] 
     """
 
+    df = pd.read_csv(df_path)
     # Tupel of split name and the plt representation that should be used for this split
     splits = [('train', 'b--'),('val', 'r--')]
     num_train_samples = 91000 
@@ -90,8 +91,8 @@ def plot_prec_recall_curve(dfs_with_labels, out_name='prec_recall_curve.png', sp
             raise LookupError(
                 f'Missing precision or recall column in passed dataframe. Found columns: {df.columns}')
 
-        axs.plot(df['recall'], df['precision'], f'{cols[idx%len(cols)]}--', label=label)
-        axs.plot(df['recall'], df['precision'], f'{cols[idx%len(cols)]}o')
+        axs.plot(df['recall'], df['precision'], f'{cols[idx%len(cols)]}--', label=label, alpha=0.5)
+        axs.plot(df['recall'], df['precision'], f'{cols[idx%len(cols)]}o', alpha=0.5)
     axs.set_ylabel('Precision')
     axs.set_xlabel('Recall')
     axs.set_title(split)
@@ -166,37 +167,41 @@ def compare_num_of_val_batches():
     more_batches_df = pd.read_csv('./results/1_to_10_23_02/metrics.csv')
     plot_train_metrics(more_batches_df, name='few_batches_df', out_dir=out_dir)
 
-def compare_prec_recall(dirs_with_labels, min_len, split, show=False):
+def compare_prec_recall(dirs_with_labels, min_len, thresholds, split, show=False):
     '''
     Compare the prec-recall curve of different experiments
     The input should be a list of tuples containing elements of (dir-path, label).
     Each dir-path needs to be a directory ending in 'pred' containing the predictions for each split 
     in a subfolder 'train', 'dev' and 'test'
     - min_len: for which min_len parameter should the prec-recall curve be plotted
+    - thresholds: only plot for those thresholds
     '''
     dfs = []
     for (dir, label) in dirs_with_labels:
         df = pd.read_csv(f"{dir}/{split}_{cfg.ANALYSIS['sum_stats_cache_file']}")
-        min_len_df = df[df.min_len == min_len].copy()
-        dfs.append((min_len_df, label)) 
+        df = df[df.min_len == min_len]
+        df = df[df.threshold.isin(thresholds)]
+        dfs.append((df, label)) 
     plot_prec_recall_curve(dfs, out_name='compare_class_balance_dev_set', split=split,  show=show)
 
 if __name__ == '__main__':
     # compare_num_of_val_batches()
 
-    # PREC-RECALL
-    dirs = [
-        './results/1_to_1_21_03/preds',
-        './results/1_to_10_16_03/preds',
-        './results/1_to_20_16_03/preds',
-        './results/1_to_20_struc_22_03/preds/'
-     ]
-    labels = ['1_to_1', '1_to_10', '1_to_20', 'struc_1_to_20']
-    dirs_with_labels = list(zip(dirs, labels))
-    # compare_prec_recall(dirs_with_labels, min_len=0.2, split='dev', show=True)
+    # thrs = np.linspace(0,1,11).round(2)
+    # # PREC-RECALL
+    # dirs = [
+    #     './results/1_to_1_21_03/preds',
+    #     './results/1_to_10_16_03/preds',
+    #     './results/1_to_20_16_03/preds',
+    #     './results/1_to_20_struc_22_03/preds/'
+    #  ]
+    # labels = ['1_to_1', '1_to_10', '1_to_20', 'struc_1_to_20']
+    # dirs_with_labels = list(zip(dirs, labels))
+    # compare_prec_recall(dirs_with_labels[:3], min_len=0.2, thresholds=thrs, split='dev', show=True)
 
     # CONF-MATRIX
-    thrs = np.linspace(0,1,11).round(2)
-    for dir, label in dirs_with_labels: 
-        plot_conf_matrix(dir, split='dev', name=label, thresholds=thrs, min_len=0.2, show_annotations=True, show=False)
+    # for dir, label in dirs_with_labels: 
+    #     plot_conf_matrix(dir, split='dev', name=label, thresholds=thrs, min_len=0.2, show_annotations=True, show=False)
+
+    plot_train_metrics('./results/overfit_Bmr_c0_21_03/metrics.csv', name='overfit_Bmr021_c0', show=True)
 
