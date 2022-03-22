@@ -101,12 +101,14 @@ def plot_prec_recall_curve(dfs_with_labels, out_name='prec_recall_curve.png', sp
     if(show):
         plt.show()
 
-def plot_conf_matrix(eval_df_path, split, name='conf_matrix', thresholds=[], min_len=None, show=False):
+def plot_conf_matrix(eval_df_path, split, name='conf_matrix', thresholds=[], min_len=None, show_annotations=True, show=False):
     '''
     Calculate and plot confusion matrix across all meetings per parameter set
     You can specify thresholds(several) and min_len(one) which you want to include
     If nothing passed, all thresholds and min_lens will be plotted
     '''
+    plt.clf() # clear existing plots
+
     path = Path(eval_df_path)
     eval_df = pd.read_csv(path / f"{split}_{cfg.ANALYSIS['eval_df_cache_file']}")
     sum_vals = eval_df.groupby(['threshold', 'min_len'])[['corr_pred_time', 'tot_pred_time', 'tot_transc_laugh_time', 'tot_fp_speech_time', 'tot_fp_noise_time', 'tot_fp_silence_time']].agg(['sum']).reset_index()
@@ -129,7 +131,12 @@ def plot_conf_matrix(eval_df_path, split, name='conf_matrix', thresholds=[], min
 
     labels = ['laugh', 'speech', 'silence', 'noise']
 
-    sns.heatmap(conf_ratio, yticklabels=sum_vals['threshold'], xticklabels=labels, annot=True)
+    hm = sns.heatmap(conf_ratio, yticklabels=sum_vals['threshold'], annot=show_annotations)
+    hm.set_yticklabels(sum_vals['threshold'], size = 11)
+    hm.set_xticklabels(labels, size = 12)
+    plt.ylabel('threshold', size=12)
+    plt.xticks(rotation=0)
+    plt.yticks(rotation=0)
     plt.tight_layout()
     plot_file = os.path.join(cfg.ANALYSIS['plots_dir'], 'conf_matrix', f'{name}.png')
     plt.savefig(plot_file)
@@ -186,10 +193,10 @@ if __name__ == '__main__':
      ]
     labels = ['1_to_1', '1_to_10', '1_to_20', 'struc_1_to_20']
     dirs_with_labels = list(zip(dirs, labels))
-    compare_prec_recall(dirs_with_labels, min_len=0.2, split='dev', show=True)
+    # compare_prec_recall(dirs_with_labels, min_len=0.2, split='dev', show=True)
 
     # CONF-MATRIX
     thrs = np.linspace(0,1,11).round(2)
     for dir, label in dirs_with_labels: 
-        plot_conf_matrix(dir, split='dev', name=label, thresholds=thrs, min_len=0.2, show=True)
+        plot_conf_matrix(dir, split='dev', name=label, thresholds=thrs, min_len=0.2, show_annotations=True, show=False)
 
