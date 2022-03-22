@@ -306,15 +306,15 @@ def run_epoch(model, mode, device, iterator, checkpoint_dir, epoch_num, optimize
         val_batches_per_log = int(val_iterator.sampler.num_cuts / validations__per_epoch)
 
         # Create train stats and save to disk
-        print(f'Training sampler has {iterator.sampler.num_cuts} batches.')
-        print(f'Validation sampler has {val_iterator.sampler.num_cuts} batches.')
+        print(f'Training sampler has {iterator.sampler.num_cuts} cuts.')
+        print(f'Validation sampler has {val_iterator.sampler.num_cuts} cuts.')
         print(f'Using batchsize {batch_size}.')
         print(f'Logging every {log_frequency} batches.')
         print(f'Evaluting {val_batches_per_log} batches per log.')
         train_params = {
-            'train_samples': [iterator.sampler.num_cuts * batch_size],
-            'val_samples':[val_iterator.sampler.num_cuts * batch_size], 
-            'val_samples_per_log': [val_batches_per_log * batch_size],
+            'train_samples': [iterator.sampler.num_cuts],
+            'val_samples':[val_iterator.sampler.num_cuts], 
+            'val_samples_per_log': [val_batches_per_log],
             'log_freq': [log_frequency],
             'batchsize': [batch_size]
             }
