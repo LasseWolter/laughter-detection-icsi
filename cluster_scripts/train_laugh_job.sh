@@ -102,6 +102,7 @@ echo "Moving input data to the compute node's scratch space: $SCRATCH_DISK"
 
 
 # input data directory path on the DFS - change line below if loc different
+FEATS_DIR=feats
 repo_home=/home/${USER}/git/laughter-detection-icsi/
 src_path=${repo_home}/data/icsi/${FEATS_DIR}
 
