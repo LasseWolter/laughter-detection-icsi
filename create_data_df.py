@@ -121,8 +121,8 @@ def create_data_df(data_dir, speech_segs_per_laugh_seg, meeting_id=None, chan_id
     meeting_groups = subset_of_laughs.groupby('meeting_id')
 
     if not random:
-        silence_segs = math.floor(speech_segs_per_laugh_seg * 0.1)
-        noise_segs = math.floor(speech_segs_per_laugh_seg * 0.2)
+        silence_segs = math.floor(speech_segs_per_laugh_seg * 0.7)
+        noise_segs = math.floor(speech_segs_per_laugh_seg * 0.1)
         speech_segs = speech_segs_per_laugh_seg - silence_segs - noise_segs
         print(f'Sampling {speech_segs} speech segments per laughter-segment...')
         print(f'Sampling {noise_segs} noise segments per laughter-segment...')
@@ -163,8 +163,14 @@ def create_data_df(data_dir, speech_segs_per_laugh_seg, meeting_id=None, chan_id
             sub_start, sub_duration = get_subsample(
                 laugh_seg.start, laugh_seg.length, cfg['train']['subsample_duration'])
 
+            # Second laugh segment
+            sub_start_2, sub_duration_2 = get_subsample(
+                laugh_seg.start, laugh_seg.length, cfg['train']['subsample_duration'])
+
             laugh_seg_lists[split].append(
                 [laugh_seg.start, laugh_seg.length, sub_start, sub_duration, audio_path, laugh_seg.meeting_id, laugh_seg.chan_id, 1])
+            laugh_seg_lists[split].append(
+                [laugh_seg.start, laugh_seg.length, sub_start_2, sub_duration_2, audio_path, laugh_seg.meeting_id, laugh_seg.chan_id, 1])
 
     # Columns for data_dfs - same for speech and laughter as they will be combined to one df
     cols = ['start', 'duration', 'sub_start', 'sub_duration', 
