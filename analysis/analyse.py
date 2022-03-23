@@ -29,12 +29,12 @@ def textgrid_to_list(full_path, params):
 
     # If file is empty -> no predictions
     if os.stat(full_path).st_size == 0:
+        print(f"WARNING: Found an empty .TextGrid file. This usually shouldn't happen.  \
+        Did something go wrong with evaluation for {params['meeting_id']: params['chan_id']}")
         return []
 
     interval_list = []
     part_id = parse.chan_to_part[params['meeting_id']][params['chan_id']]
-
-    
 
     grid = textgrids.TextGrid(full_path)
     for interval in grid['laughter']:
