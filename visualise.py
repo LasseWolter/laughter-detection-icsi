@@ -18,7 +18,7 @@ def smooth(x, y, num_of_datapoints):
     return(x_new, smooth_y)
 
 
-def plot_train_metrics(df_path, name='metrics_plot', out_dir=cfg.ANALYSIS['plots_dir'], show=False):
+def plot_train_metrics(df_dir, name='metrics_plot', out_dir=cfg.ANALYSIS['plots_dir'], show=False):
     """
     Input: path to a .csv-file representing metrics recorded during training
     Plots these metrics against the number of batches to see how precision, recall, accuracy and loss devloped 
@@ -27,13 +27,21 @@ def plot_train_metrics(df_path, name='metrics_plot', out_dir=cfg.ANALYSIS['plots
     [ batch_num,train_prec,train_rec,train_acc,train_loss,val_prec,val_rec,val_acc,val_loss ] 
     """
 
-    df = pd.read_csv(df_path)
+    print(f"\nCreating train-metrics plot for: {df_dir}")
+    df = pd.read_csv(os.path.join(df_dir,'metrics.csv'))
     # Tupel of split name and the plt representation that should be used for this split
     splits = [('train', 'b--'),('val', 'r--')]
-    num_train_samples = 91000 
-    batch_size = 32
-    batches_per_epoch = num_train_samples/float(batch_size)
-    np.linspace(0,num_train_samples*4, 4)
+
+    if os.path.isfile(os.path.join(df_dir,'train_params.csv')):
+        train_params = pd.read_csv(os.path.join(df_dir,'train_params.csv'))
+        num_train_samples = train_params.train_samples[0]
+        batch_size = 32
+        batches_per_epoch = num_train_samples/float(batch_size)
+        know_batches_per_epoch=True
+    else: 
+        print("Couldn't load num_train_samples per epoch. Not displaying secondary axis with epochs.")
+        know_batches_per_epoch = False
+        batches_per_epoch = 0
 
     # Functions used to convert between primary and secondary axis
     def _to_epoch(x):
@@ -59,8 +67,9 @@ def plot_train_metrics(df_path, name='metrics_plot', out_dir=cfg.ANALYSIS['plots
         ax.legend()
         ax.set_ylabel('Performance')
         ax.set_xlabel('Processed batches')
-        secax = ax.secondary_xaxis('top', functions=(_to_epoch, _to_batch_num))
-        secax.set_xlabel('epochs')
+        if(know_batches_per_epoch):
+            secax = ax.secondary_xaxis('top', functions=(_to_epoch, _to_batch_num))
+            secax.set_xlabel('epochs')
 
     fig.suptitle('Metrics on train and dev set during training')
     fig.tight_layout(pad=0.3)
@@ -203,5 +212,7 @@ if __name__ == '__main__':
     # for dir, label in dirs_with_labels: 
     #     plot_conf_matrix(dir, split='dev', name=label, thresholds=thrs, min_len=0.2, show_annotations=True, show=False)
 
-    plot_train_metrics('./results/overfit_Bmr_c0_21_03/metrics.csv', name='overfit_Bmr021_c0', show=True)
+    # plot_train_metrics('./results/overfit_Bmr_c0_21_03/metrics.csv', name='overfit_Bmr021_c0', show=True)
+    plot_train_metrics('./results/1_to_20_16_03', name='1_to_20', show=True)
+    plot_train_metrics('./results/1_to_20_struc_22_03', name='1_to_20_structured', show=True)
 
