@@ -26,13 +26,20 @@ def textgrid_to_list(full_path, params):
     # We focus on those that are mapped to a participant
     if params['chan_id'] not in parse.chan_to_part[params['meeting_id']].keys():
         return []
+
+    # If file is empty -> no predictions
+    if os.stat(full_path).st_size == 0:
+        return []
+
     interval_list = []
+    part_id = parse.chan_to_part[params['meeting_id']][params['chan_id']]
+
+    
+
     grid = textgrids.TextGrid(full_path)
     for interval in grid['laughter']:
         # TODO: Change for breath laugh?!
         if str(interval.text) == 'laugh':
-            part_id = parse.chan_to_part[params['meeting_id']
-                                         ][params['chan_id']]
             seg_length = interval.xmax - interval.xmin
             interval_list.append([params['meeting_id'], part_id, params['chan_id'], interval.xmin,
                                   interval.xmax, seg_length, params['threshold'], params['min_len'], str(interval.text)])
@@ -538,18 +545,19 @@ def analyse(preds_dir):
 
     preds_dir: Path that contains all predicted laughs in separate dirs for each parameter
     '''
-    force_analysis = True 
+    print(f'Analysing {preds_dir}')
+    force_analysis = False 
 
     preds_path = Path(preds_dir)
     split = preds_path.name
-    sum_stats_out_path = (preds_path.parent / f'{split}_eval.csv')
+    sum_stats_out_path = (preds_path.parent / f"{split}_{cfg['sum_stats_cache_file']}")
     eval_df_out_path = (preds_path.parent / f"{split}_{cfg['eval_df_cache_file']}")
     if not force_analysis and os.path.isfile(sum_stats_out_path):
         print('========================\nLOADING STATS FROM DISK\n')
         sum_stats = pd.read_csv(sum_stats_out_path)
     else:
         # Then create or load eval_df -> stats for each meeting
-        eval_df = create_evaluation_df(preds_dir, eval_df_out_path, use_cache=True)
+        eval_df = create_evaluation_df(preds_dir, eval_df_out_path, use_cache=False)
         # stats_for_different_min_length(preds_path)
         sum_stats = calc_sum_stats(eval_df)
         print(sum_stats)

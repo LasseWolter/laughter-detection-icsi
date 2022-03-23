@@ -27,6 +27,7 @@ def plot_train_metrics(df_dir, name='metrics_plot', out_dir=cfg.ANALYSIS['plots_
     [ batch_num,train_prec,train_rec,train_acc,train_loss,val_prec,val_rec,val_acc,val_loss ] 
     """
 
+    plt.clf()
     print(f"\nCreating train-metrics plot for: {df_dir}")
     df = pd.read_csv(os.path.join(df_dir,'metrics.csv'))
     # Tupel of split name and the plt representation that should be used for this split
@@ -77,7 +78,9 @@ def plot_train_metrics(df_dir, name='metrics_plot', out_dir=cfg.ANALYSIS['plots_
 
     plots_dir = Path(out_dir)
     plots_dir.mkdir(parents=True, exist_ok=True)
-    plt.savefig(plots_dir / f'{name}.png')
+    out_dir = plots_dir / 'train_metrics'
+    out_dir.mkdir(exist_ok=True)
+    plt.savefig(out_dir / f'{name}.png')
 
     if(show): plt.show()
 
@@ -88,7 +91,7 @@ def plot_prec_recall_curve(dfs_with_labels, out_name='prec_recall_curve.png', sp
     
     Plots precision-recall-curves for each dataframe and stores the plot on disk
     """
-    
+    plt.clf() 
     out_file = os.path.join(cfg.ANALYSIS['plots_dir'], 'prec_recall', f'{split}_{out_name}')
 
     fig, axs = plt.subplots()
@@ -198,13 +201,13 @@ if __name__ == '__main__':
 
     # thrs = np.linspace(0,1,11).round(2)
     # # PREC-RECALL
-    # dirs = [
-    #     './results/1_to_1_21_03/preds',
-    #     './results/1_to_10_16_03/preds',
-    #     './results/1_to_20_16_03/preds',
-    #     './results/1_to_20_struc_22_03/preds/'
-    #  ]
-    # labels = ['1_to_1', '1_to_10', '1_to_20', 'struc_1_to_20']
+    dirs = [
+        './results/1_to_1_21_03/preds',
+        './results/1_to_10_16_03/preds',
+        './results/1_to_20_16_03/preds',
+        './results/1_to_20_struc_22_03/preds/'
+     ]
+    labels = ['1_to_1', '1_to_10', '1_to_20', 'struc_1_to_20']
     # dirs_with_labels = list(zip(dirs, labels))
     # compare_prec_recall(dirs_with_labels[:3], min_len=0.2, thresholds=thrs, split='dev', show=True)
 
@@ -213,6 +216,11 @@ if __name__ == '__main__':
     #     plot_conf_matrix(dir, split='dev', name=label, thresholds=thrs, min_len=0.2, show_annotations=True, show=False)
 
     # plot_train_metrics('./results/overfit_Bmr_c0_21_03/metrics.csv', name='overfit_Bmr021_c0', show=True)
-    plot_train_metrics('./results/1_to_20_16_03', name='1_to_20', show=True)
-    plot_train_metrics('./results/1_to_20_struc_22_03', name='1_to_20_structured', show=True)
+    # plot_train_metrics('./results/1_to_20_16_03', name='1_to_20', show=True)
+    # plot_train_metrics('./results/1_to_20_struc_22_03', name='1_to_20_structured', show=True)
+    plot_train_metrics('./results/1_to_20_struc_70_silence_22_03', name='1_to_20_structured_70_silence', show=True)
+
+    # parent_paths = [Path(dir).parent for dir in dirs]
+    # for idx, path in enumerate(parent_paths):
+    #     plot_train_metrics(path, name=labels[idx], show=False)
 
