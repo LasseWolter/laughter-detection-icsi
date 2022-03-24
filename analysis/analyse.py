@@ -289,47 +289,13 @@ def calc_sum_stats(eval_df):
     sum_vals['recall'] = sum_vals['corr_pred_time'] / sum_vals['tot_transc_laugh_time']
     sum_stats = sum_vals[['threshold', 'min_len', 'precision', 'recall']]
 
+    not_weighted_sum_stats = eval_df.groupby(['min_len', 'threshold'])[
+        ['precision', 'recall', 'valid_pred_laughs']].agg(['mean', 'median']).reset_index()
+    print(f'Unweighted summary stats across all meetings:')
+    print(not_weighted_sum_stats)
     # Filter thresholds
     #sum_stats = sum_stats[sum_stats['threshold'].isin([0.2,0.4,0.6,0.8])]
     return sum_stats
-
-def plot_conf_matrix(eval_df, name='conf_matrix', thresholds=[], min_len=None, show=False):
-    '''
-    Calculate and plot confusion matrix across all meetings per parameter set
-    You can specify thresholds(several) and min_len(one) which you want to include
-    If nothing passed, all thresholds and min_lens will be plotted
-    '''
-    sum_vals = eval_df.groupby(['threshold', 'min_len'])[['corr_pred_time', 'tot_pred_time', 'tot_transc_laugh_time', 'tot_fp_speech_time', 'tot_fp_noise_time', 'tot_fp_silence_time']].agg(['sum']).reset_index()
-
-    # Flatten Multi-index to Single-index
-    sum_vals.columns = sum_vals.columns.map('{0[0]}'.format) 
-    print(sum_vals)
-
-    # Select certain thresholds and min_len if passed
-    if len(thresholds) != 0:
-        sum_vals = sum_vals[sum_vals.threshold.isin(thresholds)]
-    if min_len != None:
-        sum_vals = sum_vals[sum_vals.min_len == min_len]
-
-    print(sum_vals)
-    conf_ratio = sum_vals[['corr_pred_time', 'tot_fp_speech_time', 'tot_fp_silence_time', 'tot_fp_noise_time']].copy()
-    conf_ratio = conf_ratio.div(sum_vals['tot_pred_time'], axis=0)
-    # Set all ratio-vals to 0 if there is no prediction time at all
-    conf_ratio.loc[sum_vals.tot_pred_time == 0.0, ['corr_pred_time', 'tot_fp_speech_time','tot_fp_silence_time', 'tot_fp_noise_time']] = 0 
-
-
-    labels = ['laugh', 'speech', 'silence', 'noise']
-
-    sns.heatmap(conf_ratio, yticklabels=sum_vals['threshold'], xticklabels=labels, annot=True)
-    plt.tight_layout()
-    plot_file = os.path.join(cfg['plots_dir'], 'conf_matrix', f'{name}.png')
-    plt.savefig(plot_file)
-    
-    print('\n=======Confusion Matrix========')
-    print(conf_ratio)
-    if show:
-        plt.show()
-
 
 ##################################################
 # PLOTS
@@ -557,14 +523,13 @@ def analyse(preds_dir):
         sum_stats = pd.read_csv(sum_stats_out_path)
     else:
         # Then create or load eval_df -> stats for each meeting
-        eval_df = create_evaluation_df(preds_dir, eval_df_out_path, use_cache=False)
+        eval_df = create_evaluation_df(preds_dir, eval_df_out_path, use_cache=True)
         # stats_for_different_min_length(preds_path)
         sum_stats = calc_sum_stats(eval_df)
+        print('\nWeighted summary stats across all meetings:')
         print(sum_stats)
         sum_stats.to_csv(sum_stats_out_path, index=False)
         print(f'\nWritten evaluation outputs to: {sum_stats_out_path}')
-        selected_thresholds = np.linspace(0,1,11).round(2)
-        # plot_conf_matrix(eval_df, name='1_to_1_new', thresholds=selected_thresholds, min_len=0.0)
 
 
     
