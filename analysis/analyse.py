@@ -228,7 +228,12 @@ def create_evaluation_df(path, out_path, use_cache=False):
     """
     Creates a dataframe summarising evaluation metrics per meeting for each parameter-set
     """
-    if not use_cache or not os.path.isfile(f'{os.path.dirname(__file__)}/.cache/eval_df.csv'):
+    if use_cache and os.path.isfile(f'{os.path.dirname(__file__)}/.cache/eval_df.csv'):
+        print("-----------------------------------------")
+        print("NO NEW EVALUATION - USING CACHED VERSION")
+        print("-----------------------------------------")
+        eval_df = pd.read_csv(out_path)
+    else:
         all_evals = []
         print('Calculating metrics for every meeting for every parameter-set:')
         for meeting in os.listdir(path):
@@ -257,11 +262,6 @@ def create_evaluation_df(path, out_path, use_cache=False):
         if not os.path.isdir(f'{os.path.dirname(__file__)}/.cache'):
             subprocess.run(['mkdir', '.cache'])
         eval_df.to_csv(out_path, index=False)
-    else:
-        print("-----------------------------------------")
-        print("NO NEW EVALUATION - USING CACHED VERSION")
-        print("-----------------------------------------")
-        eval_df = pd.read_csv(out_path)
 
     return eval_df
 
