@@ -169,8 +169,8 @@ def create_data_df(data_dir, speech_segs_per_laugh_seg, meeting_id=None, chan_id
 
             laugh_seg_lists[split].append(
                 [laugh_seg.start, laugh_seg.length, sub_start, sub_duration, audio_path, laugh_seg.meeting_id, laugh_seg.chan_id, 1])
-            laugh_seg_lists[split].append(
-                [laugh_seg.start, laugh_seg.length, sub_start_2, sub_duration_2, audio_path, laugh_seg.meeting_id, laugh_seg.chan_id, 1])
+            #laugh_seg_lists[split].append(
+            #    [laugh_seg.start, laugh_seg.length, sub_start_2, sub_duration_2, audio_path, laugh_seg.meeting_id, laugh_seg.chan_id, 1])
 
     # Columns for data_dfs - same for speech and laughter as they will be combined to one df
     cols = ['start', 'duration', 'sub_start', 'sub_duration', 
@@ -216,4 +216,4 @@ if __name__ == "__main__":
     data_dfs_dir = os.getenv('DATA_DFS_DIR')
     speech_segs_per_laugh_seg = int(os.getenv('SPEECH_SEGS_PER_LAUGH_SEG'))
     random_segment_selection = os.getenv('RANDOM_SELECTION') == 'True'
-    create_data_df(data_dfs_dir, speech_segs_per_laugh_seg)
+    create_data_df(data_dfs_dir, speech_segs_per_laugh_seg, random=random_segment_selection)
