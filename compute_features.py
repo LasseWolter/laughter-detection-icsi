@@ -285,15 +285,15 @@ def main(env_file='.env'):
                     use_kaldi=use_kaldi, 
                     force_recompute=False)
 
-    # compute_features_for_cuts(icsi_manifest=icsi_manifest, 
-    #                 data_dfs_dir=data_dfs_dir,
-    #                 output_dir=output_dir,
-    #                 split_feats_dir=split_feat_dir,
-    #                 num_jobs=num_jobs,
-    #                 min_seg_duration=min_seg_duration, 
-    #                 use_kaldi=use_kaldi)
+    compute_features_for_cuts(icsi_manifest=icsi_manifest, 
+                    data_dfs_dir=data_dfs_dir,
+                    output_dir=output_dir,
+                    split_feats_dir=split_feat_dir,
+                    num_jobs=num_jobs,
+                    min_seg_duration=min_seg_duration, 
+                    use_kaldi=use_kaldi)
 
-    compute_features_for_single_audio_track(output_dir, split_feat_dir, meeting_id='Bmr021', channel='chan0', split='dev')
+    # compute_features_for_single_audio_track(output_dir, split_feat_dir, meeting_id='Bmr021', channel='chan0', split='dev')
 
 
 if __name__ == "__main__":
