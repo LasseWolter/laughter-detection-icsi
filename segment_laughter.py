@@ -158,7 +158,7 @@ def save_instances(instances, output_dir, save_to_audio_files, save_to_textgrid)
                 output_dir, fname + '.TextGrid'))
 
             print('Saved laughter segments in {}'.format(
-                os.path.join(output_dir, fname + '_laughter.TextGrid')))
+                os.path.join(output_dir, fname + '.TextGrid')))
 
 def i_pred():
     """
