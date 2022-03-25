@@ -1,15 +1,20 @@
 from torch.utils.data import DataLoader
-from lhotse import CutSet, Fbank, FbankConfig, Recording
+from lhotse import CutSet, Fbank, FbankConfig, Recording, MonoCut
 from lhotse.dataset import SingleCutSampler
 from lhotse import RecordingSet
-from lad import LadDataset, InferenceDataset
+from datasets import LadDataset, InferenceDataset
+import config as cfg
 import os
+import sys
+sys.path.append('./utils/')
+from utils import get_feat_extractor
 
-def create_training_dataloader(cutset_dir, split):
+def create_training_dataloader(cutset_dir, split, shuffle=False):
     '''
     Create a dataloader for the provided split 
         - split needs to be one of 'train', 'dev' and 'test'
         - cutset location is the directory in which the lhotse-CutSet with all the information about cuts and their features is stored
+        - shuffle allows shuffling the cutset before the dataloader is created from it
     '''
     if split not in ['train', 'dev', 'test']:
         raise ValueError(
@@ -18,6 +23,9 @@ def create_training_dataloader(cutset_dir, split):
     # Load cutset for split
     cuts = CutSet.from_jsonl(os.path.join(
         cutset_dir, f'{split}_cutset_with_feats.jsonl'))
+    
+    if shuffle:
+        cuts = cuts.shuffle()
 
     # Construct a Pytorch Dataset class for Laugh Activity Detection task:
     dataset = LadDataset()
@@ -33,14 +41,12 @@ def create_inference_dataloader(audio_path):
     These features are then used to created an Inference Dataset from which the 
     features for small windows can be read one by one
     '''
-    single_rec = Recording.from_file(audio_path)
-    # TODO: Is there a better way then creating a RecordingSet and CutSet with len=1
-    cuts = CutSet.from_manifests(RecordingSet.from_recordings([single_rec]))
-    # Cut that contains the whole audiofile
-    cut_all = cuts[0]
+    rec = Recording.from_file(audio_path)
+    cut = MonoCut(id='inference-cut', start=0.0, duration=rec.duration, channel=0, recording=rec)
 
-    f2 = Fbank(FbankConfig(num_filters=128, frame_shift=0.02275))
-    feats_all = cut_all.compute_features(f2)
+    extractor = get_feat_extractor(num_samples=cfg.FEAT['num_samples'], num_filters=cfg.FEAT['num_filters'])
+    # f2 = Fbank(FbankConfig(num_filters=128, frame_shift=0.02275))
+    feats_all = cut.compute_features(extractor)
 
     # Construct a Pytorch Dataset class for inference using the
     dataset = InferenceDataset(feats_all)

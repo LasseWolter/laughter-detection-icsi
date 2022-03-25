@@ -2,6 +2,10 @@ from typing import List, Optional, Tuple
 from pydantic import BaseModel
 from strenum import StrEnum
 from lxml import etree
+from pathlib import Path
+import sys
+sys.path.append(str(Path(__file__).parent.parent.parent))
+from config import ANALYSIS as cfg
 
 # Using lxml instead of xml.etree.ElementTree because it has full XPath support
 # xml.etree.ElementTree only supports basic XPath syntax
@@ -10,8 +14,12 @@ import pandas as pd
 
 chan_to_part = {}  # index mapping channel to participant per meeting
 part_to_chan = {}  # index mapping participant to channel per meeting
-laugh_only_df = pd.DataFrame()  # dataframe containing transcribed laugh only events
-invalid_df = pd.DataFrame()  # dataframe containing invalid segments
+
+# Dataframes containing different types of segments - one per row
+laugh_only_df = pd.DataFrame()  
+invalid_df = pd.DataFrame() 
+noise_df = pd.DataFrame()    
+speech_df = pd.DataFrame()   
 
 # Dataframe containing total length and audio_path of each channel
 info_df = pd.DataFrame()
@@ -122,7 +130,9 @@ def _get_segment_type(xml_seg) -> Tuple[SegmentType, str]:
         child = children[0]
         if child.tag == "VocalSound":
             if "laugh" in child.get("Description"):
-                if xml_seg.text.strip() == "":
+                # Check that there is no text in any sub-element of this tag
+                # which meant speech occurring next to laughter
+                if "".join(xml_seg.itertext()).strip() == "":
                     seg_type = SegmentType.LAUGH
                     laugh_type = child.get("Description")
                 else:
@@ -197,7 +207,7 @@ def general_info_to_list(filename, meeting_id):
     general_info_list = []
     tree = etree.parse(filename)
     # Get End-Timestamp of last transcription of the meeting
-    meeting_len = tree.findall("//Segment")[-1].get("EndTime")
+    meeting_len = tree.find("//Transcript").get("EndTime")
     for chan_id, part_id in chan_to_part[meeting_id].items():
         path = os.path.join(meeting_id, f"{chan_id}.sph")
         general_info_list.append([meeting_id, part_id, chan_id, meeting_len, path])
@@ -347,5 +357,4 @@ if __name__ == "__main__":
 # EXECUTED ON IMPORT
 #############################################
 # Parse transcripts on import
-file_path = os.path.join(os.path.dirname(__file__), "data")
-parse_transcripts(file_path)
+parse_transcripts(cfg['transcript_dir'])

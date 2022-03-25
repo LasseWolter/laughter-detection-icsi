@@ -2,7 +2,18 @@
 """Script for generating experiments.txt"""
 import os
 from lxml import etree
+from dotenv import load_dotenv, find_dotenv
+import sys
+from pathlib import Path
+sys.path.append(str(Path(__file__).parent.parent))
+from config import ANALYSIS as cfg
 
+load_dotenv(find_dotenv('.env'))
+FEATS_DIR=os.getenv('FEATS_DIR')
+
+# Name of the experiment
+NAME=os.getenv('NAME') if os.getenv('NAME') != None else 'exp1'
+NUM_EPOCHS=int(os.getenv('EPOCHS'))
 
 def parse_preambles(filename):
     '''
@@ -24,8 +35,7 @@ def parse_preambles(filename):
 
     return chan_audio_in_meeting
 
-
-PREAMBLES_PATH = './data/icsi/preambles.mrt'
+PREAMBLES_PATH = os.path.join(cfg['transcript_dir'], 'preambles.mrt')
 CHAN_AUDIO_IN_MEETING = parse_preambles(PREAMBLES_PATH)
 
 # The home dir on the node's scratch disk
@@ -36,23 +46,16 @@ SCRATCH_HOME = f'{SCRATCH_DISK}/{USER}'
 
 DATA_HOME = f'{SCRATCH_HOME}/icsi/data'
 #base_call = (f"python main.py -i {DATA_HOME}/input -o {DATA_HOME}/output " #             "--epochs 50")
-base_call = (f"python train.py --config resnet_base --checkpoint_dir {SCRATCH_HOME}/icsi/checkpoints")
+base_call = (f"python train.py --config resnet_base --checkpoint_dir {SCRATCH_HOME}/icsi/checkpoints --data_root {SCRATCH_HOME}/icsi --lhotse_dir {FEATS_DIR} --num_epochs=1")
 
-lengths = [0.2]
-thresholds = [0.2,0.4,0.6,0.8]
-
-settings = [(mt, aud, ln, thr) for mt in meetings for aud in CHAN_AUDIO_IN_MEETING[mt] 
-            for ln in lengths for thr in thresholds ]
-
-
-output_file = open("experiment.txt", "w")
+out_file_name = f"{NAME}_exp_train.txt"
+output_file = open(out_file_name, "w")
 exp_counter = 0
 
-for mt, aud, ln, thr in settings:   
+for i in range(NUM_EPOCHS):
     exp_counter+= 1
     # Note that we don't set a seed for rep - a seed is selected at random
     # and recorded in the output data by the python script
-    print(str(ln), str(thr), mt, aud)
     expt_call = (
         f"{base_call} "
     )
@@ -60,8 +63,4 @@ for mt, aud, ln, thr in settings:
 
 output_file.close()
 
-print(f'Generated {exp_counter} experiments')
-print(f' - {len(meetings)} meetings')
-print(f'    - each with a number of audio channels')
-print(f' - {len(thresholds)} thresholds')
-print(f' - {len(lengths)} min_lengths')
+print(f'Generated commands for {exp_counter} training epochs.\nSaved in: {out_file_name}')

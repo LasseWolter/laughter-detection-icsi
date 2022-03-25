@@ -38,7 +38,7 @@
 #SBATCH --cpus-per-task=2
 
 # Maximum time for the job to run, format: days-hours:minutes:seconds
-#SBATCH --time=01:00:00
+#SBATCH --time=08:00:00
 
 
 # =====================
@@ -61,6 +61,9 @@ echo "Setting up bash enviroment"
 # Make available all commands on $PATH as on headnode
 source ~/.bashrc
 
+# Make env variables available in this script
+source ~/home/s1660656/git/laughter-detection-icsi/.env
+
 # Make script bail out after first error
 set -e
 
@@ -73,7 +76,7 @@ SCRATCH_HOME=${SCRATCH_DISK}/${USER}
 mkdir -p ${SCRATCH_HOME}
 
 # Activate your conda environment
-CONDA_ENV_NAME=pt
+CONDA_ENV_NAME=pip_kaldi
 echo "Activating conda environment: ${CONDA_ENV_NAME}"
 conda activate ${CONDA_ENV_NAME}
 
@@ -97,12 +100,14 @@ conda activate ${CONDA_ENV_NAME}
 
 echo "Moving input data to the compute node's scratch space: $SCRATCH_DISK"
 
+
 # input data directory path on the DFS - change line below if loc different
-repo_home=/home/${USER}/git/laughter-detection/
-src_path=${repo_home}/data/icsi/feats
+FEATS_DIR=feats
+repo_home=/home/${USER}/git/laughter-detection-icsi/
+src_path=${repo_home}/data/icsi/${FEATS_DIR}
 
 # input data directory path on the scratch disk of the node
-dest_path=${SCRATCH_HOME}/icsi/feats
+dest_path=${SCRATCH_HOME}/icsi/${FEATS_DIR}
 mkdir -p ${dest_path}  # make it if required
 
 # Important notes about rsync:

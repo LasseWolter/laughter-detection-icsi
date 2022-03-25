@@ -1,7 +1,7 @@
 # Example usage:
 # python segment_laughter.py --input_audio_file=tst_wave.wav --output_dir=./tst_wave --save_to_textgrid=False --save_to_audio_files=True --min_length=0.2 --threshold=0.5
 
-import configs
+import config
 import models
 import time
 from distutils.util import strtobool
@@ -17,7 +17,7 @@ import argparse
 import torch
 import numpy as np
 import pandas as pd
-import scipy
+import scipy.io.wavfile
 from tqdm import tqdm
 import tgt
 import load_data
@@ -25,18 +25,13 @@ sys.path.append('./utils/')
 import torch_utils
 import audio_utils
 
-sample_rate = 8000
-
-thresholds = [0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9]
-min_lengths = [0.2]
-
 parser = argparse.ArgumentParser()
 
 parser.add_argument('--model_path', type=str,
                     default='checkpoints/in_use/resnet_with_augmentation')
 parser.add_argument('--config', type=str, default='resnet_with_augmentation')
-parser.add_argument('--threshold', type=str, default='0.5')
-parser.add_argument('--min_length', type=str, default='0.2')
+parser.add_argument('--thresholds', type=str, default='0.5', help='Single value or comma-separated list of thresholds to evaluate')
+parser.add_argument('--min_lengths', type=str, default='0.2', help='Single value or comma-separated list of min_lengths to evaluate')
 parser.add_argument('--input_audio_file', required=True, type=str)
 parser.add_argument('--output_dir', type=str, default=None)
 parser.add_argument('--save_to_audio_files', type=str, default='True')
@@ -46,13 +41,15 @@ args = parser.parse_args()
 
 
 model_path = args.model_path
-config = configs.CONFIG_MAP[args.config]
+config = config.MODEL_MAP[args.config]
 audio_path = args.input_audio_file
-threshold = float(args.threshold)
-min_length = float(args.min_length)
 save_to_audio_files = bool(strtobool(args.save_to_audio_files))
 save_to_textgrid = bool(strtobool(args.save_to_textgrid))
 output_dir = args.output_dir
+
+# Turn comma-separated parameter strings into list of floats 
+thresholds = [float(t) for t in args.thresholds.split(',')]
+min_lengths = [float(l) for l in args.min_lengths.split(',')]
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f"Using device {device}")
@@ -61,7 +58,6 @@ print(f"Using device {device}")
 
 model = config['model'](
     dropout_rate=0.0, linear_layer_size=config['linear_layer_size'], filter_sizes=config['filter_sizes'])
-feature_fn = config['feature_fn']
 model.set_device(device)
 
 if os.path.exists(model_path):
@@ -108,7 +104,8 @@ def load_and_pred(audio_path):
 
     fps = len(probs)/float(file_length)
 
-    probs = laugh_segmenter.lowpass(probs)
+    # Removed because it can output probs < 0
+    # probs = laugh_segmenter.lowpass(probs)
 
     # Get a list of instance for each setting passed in  
     instance_dict = laugh_segmenter.get_laughter_instances(
@@ -131,8 +128,8 @@ def save_instances(instances, output_dir, save_to_audio_files, save_to_textgrid)
         1. as audio file
         2. as textgrid file
     '''
+    os.system(f"mkdir -p {output_dir}")
     if len(instances) > 0:
-        os.system(f"mkdir -p {output_dir}")
         if save_to_audio_files:
             full_res_y, full_res_sr = librosa.load(audio_path, sr=44100)
             wav_paths = []
@@ -161,7 +158,7 @@ def save_instances(instances, output_dir, save_to_audio_files, save_to_textgrid)
                 output_dir, fname + '.TextGrid'))
 
             print('Saved laughter segments in {}'.format(
-                os.path.join(output_dir, fname + '_laughter.TextGrid')))
+                os.path.join(output_dir, fname + '.TextGrid')))
 
 def i_pred():
     """

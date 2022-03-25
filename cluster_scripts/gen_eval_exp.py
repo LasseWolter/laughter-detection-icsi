@@ -1,8 +1,41 @@
 #!/usr/bin/env python3
-"""Script for generating experiments.txt"""
+"""
+Script for generating .txt file containing experiments for evaluation for each track of the devlopment set.
+The location of the ML-model used for evaluation is set in the MODEL_PATH global variable .
+
+Generate one experiment per line, e.g.:
+`python segment_laughter.py --save_to_textgrid=True --save_to_audio_files=False --config=resnet_base --input_audio_file=/disk/scratch/s1660656/icsi/data/speech/dev/Bmr021/chan0.sph --output_dir=/disk/scratch/s1660656/icsi/data/eval_output/Bmr021 --model_path=checkpoints/icsi_eval`
+""" 
 import os
 from lxml import etree
+import numpy as np
 
+# Define split for evaluation (one of 'train', 'dev' and 'test')
+SPLIT='dev'
+
+# Copy over all data if train split is used
+# (didn't create an additional train dir to avoid lots of duplicate data)
+# Otherwise only copy dev or test data
+if SPLIT=='train':
+    SPLIT_DIR = 'all'
+else: SPLIT_DIR = SPLIT
+
+# Path of the model's checkpoint 
+MODEL_PATH='checkpoints/icsi_eval'
+
+# The model config needs to be the name of one of the configs in configs.py 
+MODEL_CONFIG='resnet_base' 
+
+# Settings as numeric list
+lower_range= np.linspace(0,0.9,19).round(2)
+upper_range = np.linspace(0.91,1,10).round(2)
+thrs = np.concatenate((lower_range,upper_range))
+min_lens = [0,0.1,0.2]
+# Comma-separated list of settings to try
+THRESHOLDS=','.join([str(t) for t in thrs])
+MIN_LENGTHS =','.join([str(l) for l in min_lens])
+
+OUTPUT_FILE=f'eval_{SPLIT}_exp.txt'
 
 def parse_preambles(filename):
     '''
@@ -48,47 +81,40 @@ CHAN_AUDIO_IN_MEETING = parse_preambles(PREAMBLES_PATH)
 
 # The home dir on the node's scratch disk
 USER = os.getenv('USER')
+
 # This may need changing to e.g. /disk/scratch_fast depending on the cluster
 SCRATCH_DISK = '/disk/scratch'  
 SCRATCH_HOME = f'{SCRATCH_DISK}/{USER}'
 
 DATA_HOME = f'{SCRATCH_HOME}/icsi/data'
-#base_call = (f"python main.py -i {DATA_HOME}/input -o {DATA_HOME}/output " #             "--epochs 50")
-base_call = (f"python segment_laughter.py --save_to_textgrid=True --save_to_audio_files=False --config=resnet_base")
 
-meetings = PARTITIONS['dev'] 
-# lengths = [0.2]
-# thresholds = [0.2,0.4,0.6,0.8]
-# 
-# settings = [(mt, aud, ln, thr) for mt in meetings for aud in CHAN_AUDIO_IN_MEETING[mt] 
-#             for ln in lengths for thr in thresholds ]
+base_call = (f"python segment_laughter.py --save_to_textgrid=True --save_to_audio_files=False"
+             f" --config={MODEL_CONFIG} --model_path={MODEL_PATH} --thresholds={THRESHOLDS} --min_lengths={MIN_LENGTHS}")
 
-settings = [(mt, aud) for mt in meetings for aud in CHAN_AUDIO_IN_MEETING[mt]]
+meetings = PARTITIONS[SPLIT] 
 
-output_file = open("eval_exp.txt", "w")
+# Parameter settings are set directly in the segment_laughter.file 
+#    - threshholds and min_lengths
+
+audio_tracks = [(mt, chan) for mt in meetings for chan in CHAN_AUDIO_IN_MEETING[mt]]
+
+output_file = open(OUTPUT_FILE, "w")
 exp_counter = 0
 
-#for mt, aud, ln, thr in settings:   
-for mt, aud in settings:   
+for meeting, chan in audio_tracks:   
     exp_counter+= 1
     # Note that we don't set a seed for rep - a seed is selected at random
     # and recorded in the output data by the python script
-    #print(str(ln), str(thr), mt, aud)
-    print(mt, aud)
+    print(meeting, chan)
     expt_call = (
         f"{base_call} "
-        f"--input_audio_file={DATA_HOME}/speech/dev/{mt}/{aud} "
-        f"--output_dir={DATA_HOME}/eval_output/{mt} "
-        #f"--min_length={ln} "
-        #f"--threshold={thr} "
-        f"--model_path=checkpoints/icsi_eval"
+        f"--input_audio_file={DATA_HOME}/speech/{SPLIT_DIR}/{meeting}/{chan} "
+        f"--output_dir={DATA_HOME}/eval_output/{meeting} "
     )
     print(expt_call, file=output_file)
 
 output_file.close()
 
-print(f'Generated {exp_counter} experiments')
+print(f'Generated {exp_counter} experiments for split: {SPLIT}')
 print(f' - {len(meetings)} meetings')
 print(f'    - each with a number of audio channels')
-#print(f' - {len(thresholds)} thresholds')
-#print(f' - {len(lengths)} min_lengths')
