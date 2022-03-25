@@ -8,7 +8,7 @@ def read_from_offset(offset, duration, iterations):
 
     for i in range(0,iterations):
         start = time.time()
-        librosa.load('chan1.sph', sr=16000, offset=offset, duration=duration)
+        librosa.load('./Btr002_chan3.sph', sr=16000, offset=offset, duration=duration)
         time_taken = time.time() - start
         tot_time += time_taken 
 
@@ -20,13 +20,23 @@ def read_from_offset(offset, duration, iterations):
             f'\nRTF: {av_time/duration:.2f}')
 
     
-#print("SEGMENT LENGTH 1")
-#read_from_offset(0, 1, 10)
-#read_from_offset(390, 1, 10)
-#read_from_offset(3360, 1,10)
+print("SEGMENT LENGTH 1")
+read_from_offset(0, 1, 30)
+read_from_offset(300, 1, 30)
+read_from_offset(700, 1, 30)
+read_from_offset(1000, 1,30)
+read_from_offset(2000, 1,30)
+read_from_offset(3000, 1,30)
+read_from_offset(4000, 1,30)
+read_from_offset(5000, 1,30)
 
 
-print("SEGMENT LENGTH 20")
-read_from_offset(0, 20, 10)
-read_from_offset(390, 20, 10)
-read_from_offset(3360, 20,10)
+#print("SEGMENT LENGTH 20")
+#read_from_offset(0, 20, 30)
+#read_from_offset(300, 20, 30)
+#read_from_offset(700, 20, 30)
+#read_from_offset(1000, 20,30)
+#read_from_offset(2000, 20,30)
+#read_from_offset(3000, 20,30)
+#read_from_offset(4000, 20,30)
+#read_from_offset(5000, 20,30)
