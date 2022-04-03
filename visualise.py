@@ -150,7 +150,7 @@ def plot_conf_matrix(eval_df_path, split, name='conf_matrix', thresholds=[], min
 
     labels = ['laugh', 'speech', 'silence', 'noise']
 
-    hm = sns.heatmap(conf_ratio, yticklabels=sum_vals['threshold'], annot=show_annotations)
+    hm = sns.heatmap(conf_ratio, yticklabels=sum_vals['threshold'], annot=show_annotations, cmap="YlGnBu")
     hm.set_yticklabels(sum_vals['threshold'], size = 11)
     hm.set_xticklabels(labels, size = 12)
     plt.ylabel('threshold', size=12)
