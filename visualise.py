@@ -232,7 +232,7 @@ def visualise_experiment(dirs, labels, exp_name, conf_thrs, prec_rec_thrs):
     # prec-recall-curve (in one plot)
     compare_prec_recall(dirs_with_labels, min_len=0.2, thresholds=prec_rec_thrs, sub_dir=exp_name, split='dev', show=False) 
 
-if __name__ == '__main__':
+def main():
     # compare_num_of_val_batches()
 
     all_thrs = np.linspace(0,1,21).round(2)
@@ -243,14 +243,6 @@ if __name__ == '__main__':
 
     dir_dict = {}
     label_dict = {}
-
-    dir_dict['random'] = [
-        './results/1_to_1_21_03/5000_batches/preds',
-        './results/1_to_10_16_03/preds',
-        './results/1_to_20_16_03/27000_batches/preds',
-        './results/archive/init_eval_2021/preds/'
-     ]
-    label_dict['random']= ['1_to_1_random', '1_to_10_random', '1_to_20_random','baseline']
 
     dir_dict['compare_1_to_1'] = [
         './results/1_to_1_21_03/5000_batches/preds',
@@ -265,23 +257,6 @@ if __name__ == '__main__':
     ]
     label_dict['compare_1_to_20']= ['27000_batches_1_to_20', '50000_batches_1_to_20']
 
-    # struc_dirs_with_labels = list(zip(dir_dict['compare_1_to_20'], label_dict['compare_1_to_20']))
-    # compare_prec_recall(struc_dirs_with_labels, min_len=0.2, thresholds=thrs, split='dev', show=True)
-
-    dir_dict['structured'] = [
-        './results/1_to_20_16_03/27000_batches/preds',
-        './results/1_to_20_struc_22_03/preds',
-        './results/1_to_20_struc_70_silence_22_03/preds',
-        './results/2_to_20_22_03/preds'
-    ]
-    label_dict['structured'] = [
-        '1_to_20_random',
-        'model-a',
-        'model-b',
-        'model-c'
-    ]
-    # struc_dirs_with_labels = list(zip(dir_dict['structured'], label_dict['structured']))
-    # compare_prec_recall(struc_dirs_with_labels, min_len=0.2, thresholds=thrs, split='dev', show=True)
 
     ##################################################
     # Init eval 
@@ -289,62 +264,33 @@ if __name__ == '__main__':
     # plot_conf_matrix('./results/archive/init_eval_2021/preds/', split='all', name='init_eval', thresholds=[0.2,0.4,0.6,0.8], min_len=0.2, show_annotations=True, show=False)
 
     ##################################################
-    # Random - exp1 
+    # Exp1 - Random selection of non-laughter segments
     ##################################################
-    visualise_experiment(dir_dict['random'], label_dict['random'], 'exp_1', conf_thrs=four_thrs, prec_rec_thrs=all_thrs)
-    # conf-matrix + train metrics (for each plot)
-    # for dir, label in list(zip(dir_dict['random'], label_dict['random'])):
-    #     # Use conf matrix for whole set from above, not just dev set
-    #     if label == 'baseline':
-    #         continue
-    #     plot_conf_matrix(dir, split='dev', name=label, thresholds=whole_thrs, min_len=0.2, show_annotations=True, show=False)
-        # plot_train_metrics(Path(dir).parent, name=label, show=False)
-    
-
-    # # prec-recall-curve (in one plot)
-    # dirs_with_labels = list(zip(dir_dict['random'], label_dict['random']))
-    # compare_prec_recall(dirs_with_labels, min_len=0.2, thresholds=all_thrs, split='dev', show=True)
-
+    # dirs = [
+    #     './results/1_to_1_21_03/5000_batches/preds',
+    #     './results/1_to_10_16_03/preds',
+    #     './results/1_to_20_16_03/27000_batches/preds',
+    #     './results/archive/init_eval_2021/preds/' # used as baseline
+    #  ]
+    # labels= ['1_to_1_random', '1_to_10_random', '1_to_20_random','baseline']
+    # visualise_experiment(dirs, labels, 'exp_1', conf_thrs=four_thrs, prec_rec_thrs=all_thrs)
 
     ##################################################
-    # Structured - exp2
+    #Exp2 - Structured selection of non-laughter segments 
     ##################################################
-    # CONF-MATRIX
-    # for dir, label in list(zip(dir_dict['structured'], label_dict['structured'])):
-    #     plot_conf_matrix(dir, split='dev', name=label, thresholds=whole_thrs, min_len=0.2, show_annotations=True, show=False)
-    #     #plot_train_metrics(Path(dir).parent, name=label, show=False)
+    dirs = [
+        './results/1_to_20_16_03/27000_batches/preds',
+        './results/1_to_20_struc_22_03/preds',
+        './results/1_to_20_struc_70_silence_22_03/preds',
+        './results/1_to_20_struc_70_sil_10_nois/preds'
+    ]
+    labels = [
+        '1_to_20_random',  # used as baseline
+        'model-a',
+        'model-b',
+        'model-c'
+    ]
+    visualise_experiment(dirs, labels, 'exp_2', conf_thrs=four_thrs, prec_rec_thrs=all_thrs)
 
-    # # prec-recall-curve (in one plot)
-    # dirs_with_labels = list(zip(dir_dict['structured'], label_dict['structured']))
-    # compare_prec_recall(dirs_with_labels, min_len=0.2, thresholds=all_thrs, split='dev', show=True)
-
-    ##################################################
-    # ALL
-    ##################################################
-    # all_dirs = dir_dict['random'] + dir_dict['structured']
-    # all_labels = label_dict['random'] + label_dict['structured']
-    # all_dirs_with_labels = list(zip(all_dirs, all_labels))
-    # compare_prec_recall(all_dirs_with_labels, min_len=0.2, thresholds=thrs, split='dev', show=True)
-    # # PREC-RECALL
-
-    # dirs = ['./results/init_eval_2021/preds/']
-    # labels = ['initial-evaluation']
-
-
-    # CONF-MATRIX
-    #for dir, label in list(zip(dir_dict['random'], label_dict['random'])):
-    #    plot_conf_matrix(dir, split='dev', name=label, thresholds=thrs, min_len=0.2, show_annotations=True, show=False)
-
-    # plot_train_metrics('./results/overfit_Bmr_c0_21_03/metrics.csv', name='overfit_Bmr021_c0', show=True)
-    #plot_train_metrics('./results/1_to_20_16_03', name='1_to_20', show=True)
-    # plot_train_metrics('./results/1_to_20_struc_22_03', name='1_to_20_structured', show=True)
-    # plot_train_metrics('./results/1_to_20_struc_70_silence_22_03', name='', show=True)
-    # plot_train_metrics('./results/1_to_1_21_03/', name='1_to_1_50_000', show=True)
-    #plot_train_metrics('./results/1_to_20_16_03/', name='1_to_20', show=True)
-    # plot_train_metrics('./results/1_to_20_16_03/27000_batches/', name='1_to_20_27_000', show=True)
-    # plot_train_metrics('./results/5_to_100_25_03/', name='5_to_100_random', show=True)
-
-    # parent_paths = [Path(dir).parent for dir in dirs]
-    # for idx, path in enumerate(parent_paths):
-    #     plot_train_metrics(path, name=labels[idx], show=False)
-
+if __name__ == '__main__':
+    main()
