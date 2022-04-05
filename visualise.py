@@ -112,6 +112,7 @@ def plot_prec_recall_curve(dfs_with_labels, out_name='prec_recall_curve.png', su
     axs.set_xlabel('Recall')
     # axs.set_title(split)
     axs.legend()
+    axs.grid()
 
     out_file = os.path.join(cfg.ANALYSIS['plots_dir'], sub_dir, 'prec_recall', f'{split}_{out_name}')
     Path(out_file).parent.mkdir(exist_ok=True, parents=True)
@@ -216,25 +217,19 @@ def visualise_experiment(dirs, labels, exp_name, conf_thrs, prec_rec_thrs):
     '''
     
     dirs_with_labels = list(zip(dirs, labels))
+
+    # Create separate plots for each setting: 1) confusion matrix; 2) train metrics
     for dir, label in dirs_with_labels: 
-        # Use conf matrix for whole set from above, not just dev set
-        # if label == 'baseline':
-            # continue
         plot_conf_matrix(dir, split='dev', name=label, thresholds=conf_thrs, min_len=0.2, sub_dir=exp_name,show_annotations=True, show=False)
     
-    # NOTE: If put in one loop the annotation size in conf-matrix changes
+    # NOTE: If put in one loop with confusion matrix the annotation size in conf-matrix changes
     for dir, label in dirs_with_labels: 
-        # Use conf matrix for whole set from above, not just dev set
-        # if label == 'baseline':
-            # continue
         plot_train_metrics(Path(dir).parent, name=label, sub_dir=exp_name, show=False)
     
-    # prec-recall-curve (in one plot)
+    # Create one plot comparing the prec-recall-curve of all settings
     compare_prec_recall(dirs_with_labels, min_len=0.2, thresholds=prec_rec_thrs, sub_dir=exp_name, split='dev', show=False) 
 
 def main():
-    # compare_num_of_val_batches()
-
     all_thrs = np.linspace(0,1,21).round(2)
     whole_thrs= np.linspace(0,1,11).round(2)
     four_thrs = [0.2,0.4,0.6,0.8]
@@ -263,17 +258,17 @@ def main():
     ##################################################
     # plot_conf_matrix('./results/archive/init_eval_2021/preds/', split='all', name='init_eval', thresholds=[0.2,0.4,0.6,0.8], min_len=0.2, show_annotations=True, show=False)
 
-    ##################################################
+    #################################################
     # Exp1 - Random selection of non-laughter segments
-    ##################################################
-    # dirs = [
-    #     './results/1_to_1_21_03/5000_batches/preds',
-    #     './results/1_to_10_16_03/preds',
-    #     './results/1_to_20_16_03/27000_batches/preds',
-    #     './results/archive/init_eval_2021/preds/' # used as baseline
-    #  ]
-    # labels= ['1_to_1_random', '1_to_10_random', '1_to_20_random','baseline']
-    # visualise_experiment(dirs, labels, 'exp_1', conf_thrs=four_thrs, prec_rec_thrs=all_thrs)
+    #################################################
+    dirs = [
+        './results/1_to_20_16_03/27000_batches/preds',
+        './results/1_to_10_16_03/preds',
+        './results/1_to_1_21_03/5000_batches/preds',
+        './results/archive/init_eval_2021/preds/' # used as baseline
+     ]
+    labels= ['1-to-20', '1-to-10', '1-to-1','baseline-gillick']
+    visualise_experiment(dirs, labels, 'exp_1', conf_thrs=four_thrs, prec_rec_thrs=all_thrs)
 
     ##################################################
     #Exp2 - Structured selection of non-laughter segments 
@@ -285,7 +280,7 @@ def main():
         './results/1_to_20_struc_70_sil_10_nois/preds'
     ]
     labels = [
-        '1_to_20_random',  # used as baseline
+        'baseline-1-to-20',  # used as baseline
         'model-a',
         'model-b',
         'model-c'
