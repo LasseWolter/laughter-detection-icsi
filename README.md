@@ -35,5 +35,6 @@ The following list outlines which parts of the repository belong to each of them
 - **Misc**:
     - `Demo.ipynb` (from scratch): demonstration of using Lhotse to compute features from a dataframe defining laughter and non-laughter segments 
     - `config.py` (adapted): configurations for different parts of the pipeline
+    - `results.zip` (N/A): contains the model predictions from experiments presented in my thesis
 ### Diagram of the Data Pipeline
 ![Data Pipeline](./docs/data-pipeline.png)
