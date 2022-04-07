@@ -231,32 +231,12 @@ def visualise_experiment(dirs, labels, exp_name, conf_thrs, prec_rec_thrs):
 
 def main():
     all_thrs = np.linspace(0,1,21).round(2)
-    whole_thrs= np.linspace(0,1,11).round(2)
     four_thrs = [0.2,0.4,0.6,0.8]
 
-    min_lens = [0.0,0.1,0.2]
-
-    dir_dict = {}
-    label_dict = {}
-
-    dir_dict['compare_1_to_1'] = [
-        './results/1_to_1_21_03/5000_batches/preds',
-        './results/1_to_1_21_03/preds',
-    ]
-    label_dict['compare_1_to_1']= ['5000_batches_1_to_1', '50000_batches_1_to_1']
-
     ##################################################
-    dir_dict['compare_1_to_20'] = [
-        './results/1_to_20_16_03/27000_batches/preds',
-        './results/1_to_20_16_03/preds',
-    ]
-    label_dict['compare_1_to_20']= ['27000_batches_1_to_20', '50000_batches_1_to_20']
-
-
+    # Init eval on whole ICSI corpus 
     ##################################################
-    # Init eval 
-    ##################################################
-    # plot_conf_matrix('./results/archive/init_eval_2021/preds/', split='all', name='init_eval', thresholds=[0.2,0.4,0.6,0.8], min_len=0.2, show_annotations=True, show=False)
+    # plot_conf_matrix('./results/init_eval_2021/preds/', split='all', name='init_eval', thresholds=[0.2,0.4,0.6,0.8], min_len=0.2, show_annotations=True, show=False)
 
     #################################################
     # Exp1 - Random selection of non-laughter segments
@@ -265,7 +245,7 @@ def main():
         './results/1_to_20_16_03/27000_batches/preds',
         './results/1_to_10_16_03/preds',
         './results/1_to_1_21_03/5000_batches/preds',
-        './results/archive/init_eval_2021/preds/' # used as baseline
+        './results/init_eval_2021/preds/' # used as baseline
      ]
     labels= ['1-to-20', '1-to-10', '1-to-1','baseline-gillick']
     visualise_experiment(dirs, labels, 'exp_1', conf_thrs=four_thrs, prec_rec_thrs=all_thrs)
