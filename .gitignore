@@ -2,6 +2,7 @@
 *__pycache__
 
 data/*
+results/*
 analysis/transcript_parsing/data/*
 
 # Vim configs
