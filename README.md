@@ -36,6 +36,23 @@ The following list outlines which parts of the repository belong to each of them
 - **Misc**:
     - `Demo.ipynb` (from scratch): demonstration of using Lhotse to compute features from a dataframe defining laughter and non-laughter segments 
     - `config.py` (adapted): configurations for different parts of the pipeline
-    - `results.zip` (N/A): contains the model predictions from experiments presented in my thesis
+    - `results.zip` (N/A): contains one folder for each models presented in my thesis consisting of: 
+        - `best.pth.tar`: the best model trained using this model
+        - `metrics.csv`: metrics recorded during training
+            - can be used to create plots like [this](#train-metrics-plot)
+        - `preds\<split>`: predictions for all channels in that split with different thresholds and different minimum length (min_length) parameters
+            - _naming-convention_ used **and required** by `analyse.py`
+                - `t_0.1`: folder for threshold of 0.1
+                - `l_0.2`: folder for minimum length of 0.2s
+                - `chanN.TextGrid`: file containing predictions for channel N 
+        - **after** running `analyse.py` the `preds\<split>` folder will also contain the following:
+            - `preds\dev_eval_df_per_meeting.csv`: several metrics per meeting for different thresholds and min_lengths including precision, recall, total prediction time, correct predictions time, etc. 
+            - `preds\dev_sum_stats.csv`: precision and recall across the whole split for different thresholds and min_lengths
+                
+
+
+### Example plots
+##### Train metrics plot
+![sample-train-metrics-plot](./docs/sample_train_metrics_plot.png)
 ### Diagram of the Data Pipeline
 ![Data Pipeline](./docs/data-pipeline.png)
