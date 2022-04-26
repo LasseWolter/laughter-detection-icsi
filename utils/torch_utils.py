@@ -6,7 +6,7 @@ from torch import nn
 
 # Import different progress bar depending on environment
 # https://stackoverflow.com/questions/15411967/how-can-i-check-if-code-is-executed-in-the-ipython-notebook
-if 'ipykernel' in sys.modules:
+if "ipykernel" in sys.modules:
     from tqdm import tqdm_notebook as tqdm
 else:
     from tqdm import tqdm
@@ -14,9 +14,10 @@ else:
 
 ##################### INITIALIZATION ##########################
 
+
 def count_parameters(model):
     counts = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    print(f'The model has {counts:,} trainable parameters')
+    print(f"The model has {counts:,} trainable parameters")
 
 
 def init_weights(model):
@@ -28,10 +29,11 @@ def init_weights(model):
 
 
 def num_batches_per_epoch(generator):
-    return len(generator.dataset)/generator.batch_size
+    return len(generator.dataset) / generator.batch_size
 
 
 ################## CHECKPOINTING ##############################
+
 
 def save_checkpoint(state, is_best, checkpoint):
     """Saves model and training parameters at checkpoint + 'last.pth.tar'. If is_best==True, also saves
@@ -43,13 +45,17 @@ def save_checkpoint(state, is_best, checkpoint):
 
     Modified from: https://github.com/cs230-stanford/cs230-code-examples/
     """
-    filepath = os.path.join(checkpoint, 'last.pth.tar')
+    filepath = os.path.join(checkpoint, "last.pth.tar")
     if not os.path.exists(checkpoint):
-        print("Checkpoint Directory does not exist! Making directory {}".format(checkpoint))
+        print(
+            "Checkpoint Directory does not exist! Making directory {}".format(
+                checkpoint
+            )
+        )
         os.mkdir(checkpoint)
     torch.save(state, filepath)
     if is_best:
-        shutil.copyfile(filepath, os.path.join(checkpoint, 'best.pth.tar'))
+        shutil.copyfile(filepath, os.path.join(checkpoint, "best.pth.tar"))
 
 
 def load_checkpoint(checkpoint, model, optimizer=None):
@@ -67,33 +73,38 @@ def load_checkpoint(checkpoint, model, optimizer=None):
     else:
         print("Loading checkpoint at:", checkpoint)
     checkpoint = torch.load(checkpoint)
-    model.load_state_dict(checkpoint['state_dict'])
+    model.load_state_dict(checkpoint["state_dict"])
 
     if optimizer:
-        optimizer.load_state_dict(checkpoint['optim_dict'])
+        optimizer.load_state_dict(checkpoint["optim_dict"])
 
-    if 'epoch' in checkpoint:
-        model.epoch = checkpoint['epoch']
+    if "epoch" in checkpoint:
+        model.epoch = checkpoint["epoch"]
 
-    if 'global_step' in checkpoint:
-        model.global_step = checkpoint['global_step'] + 1
+    if "global_step" in checkpoint:
+        model.global_step = checkpoint["global_step"] + 1
         print("Loading checkpoint at step: ", model.global_step)
 
-    if 'best_val_loss' in checkpoint:
-        model.best_val_loss = checkpoint['best_val_loss']
+    if "best_val_loss" in checkpoint:
+        model.best_val_loss = checkpoint["best_val_loss"]
 
     return checkpoint
 
 
-def make_state_dict(model, optimizer=None, epoch=None, global_step=None,
-                    best_val_loss=None):
-    return {'epoch': epoch, 'global_step': global_step,
-            'best_val_loss': best_val_loss, 'state_dict': model.state_dict(),
-            'optim_dict': optimizer.state_dict()
-            }
+def make_state_dict(
+    model, optimizer=None, epoch=None, global_step=None, best_val_loss=None
+):
+    return {
+        "epoch": epoch,
+        "global_step": global_step,
+        "best_val_loss": best_val_loss,
+        "state_dict": model.state_dict(),
+        "optim_dict": optimizer.state_dict(),
+    }
 
 
 ##################### TRAINING METHODS ######################
+
 
 def epoch_time(start_time, end_time):
     elapsed_time = end_time - start_time

@@ -4,6 +4,7 @@ from strenum import StrEnum
 from lxml import etree
 from pathlib import Path
 import sys
+
 sys.path.append(str(Path(__file__).parent.parent.parent))
 from config import ANALYSIS as cfg
 
@@ -16,26 +17,35 @@ chan_to_part = {}  # index mapping channel to participant per meeting
 part_to_chan = {}  # index mapping participant to channel per meeting
 
 # Dataframes containing different types of segments - one per row
-laugh_only_df = pd.DataFrame()  
-invalid_df = pd.DataFrame() 
-noise_df = pd.DataFrame()    
-speech_df = pd.DataFrame()   
+laugh_only_df = pd.DataFrame()
+invalid_df = pd.DataFrame()
+noise_df = pd.DataFrame()
+speech_df = pd.DataFrame()
 
 # Dataframe containing total length and audio_path of each channel
 info_df = pd.DataFrame()
 
 
 class SegmentType(StrEnum):
-    '''
-    Describes the type of data that was transcribed in this segment. 
+    """
+    Describes the type of data that was transcribed in this segment.
     For detailed information: https://www1.icsi.berkeley.edu/Speech/mr/icsimc_doc/trans_guide.txt
-    '''
-    INVALID = 'invalid'  # e.g. laughter segments occurring next to speech or other noise
-    SPEECH = 'speech' 
-    LAUGH = 'laugh' 
-    OTHER_VOCAL = 'other_vocal'  # segments containing a single VocalSound that's not laughter
-    NON_VOCAL = 'non_vocal' # segments containing a single NonVocalSound (e.g. 'mic noise')
-    MIXED = 'mixed'  # contains some mixture of speech / noise and silence (but no laughter)
+    """
+
+    INVALID = (
+        "invalid"  # e.g. laughter segments occurring next to speech or other noise
+    )
+    SPEECH = "speech"
+    LAUGH = "laugh"
+    OTHER_VOCAL = (
+        "other_vocal"  # segments containing a single VocalSound that's not laughter
+    )
+    NON_VOCAL = (
+        "non_vocal"  # segments containing a single NonVocalSound (e.g. 'mic noise')
+    )
+    MIXED = (
+        "mixed"  # contains some mixture of speech / noise and silence (but no laughter)
+    )
 
 
 class Segment(BaseModel):
@@ -121,7 +131,7 @@ def _get_segment_type(xml_seg) -> Tuple[SegmentType, str]:
     Output: [segment_type, laugh_type]
     """
     children = xml_seg.getchildren()
-    laugh_type  = None
+    laugh_type = None
     seg_type = SegmentType.MIXED
 
     if len(children) == 0:
@@ -152,12 +162,12 @@ def _get_segment_type(xml_seg) -> Tuple[SegmentType, str]:
         # If laughter occurs next to speech we can properly track it but it's still laughter
         # Thus a prediction on such a segment shouldn't be considered wrong but just be ignored.
         laughs = xml_seg.xpath("./VocalSound[contains(@Description, 'laugh')]")
-        
+
         # If one of VocalSound or NonVocalSound tags appear, classify as mixed
         tag_types = list(map(lambda x: x.tag, children))
         if laughs != []:
             seg_type = SegmentType.INVALID
-        elif "NonVocalSound" in tag_types or "VocalSound" in tag_types: 
+        elif "NonVocalSound" in tag_types or "VocalSound" in tag_types:
             seg_type = SegmentType.MIXED
         else:
             seg_type = SegmentType.SPEECH
@@ -189,7 +199,7 @@ def get_segment_list(filename, meeting_id):
     # mixed laugh means that the laugh occurred next to speech or any other sound
     for xml_seg in all_segs:
         seg = xml_to_segment(xml_seg, meeting_id)
-        if (seg==None): # Skip segment without audio chan
+        if seg == None:  # Skip segment without audio chan
             continue
         if seg.type == SegmentType.LAUGH:
             laugh_only_list.append(seg.dict())
@@ -259,7 +269,7 @@ def create_dfs(file_dir, files):
 
     # Define lists holding all the rows for those dataframes
     tot_invalid_segs = []
-    tot_speech_segs= []
+    tot_speech_segs = []
     tot_laugh_only_segs = []
     tot_noise_segs = []
 
@@ -276,12 +286,12 @@ def create_dfs(file_dir, files):
 
         invalid, speech, laugh_only, noise = get_segment_list(full_path, meeting_id)
         tot_invalid_segs += invalid
-        tot_speech_segs += speech 
+        tot_speech_segs += speech
         tot_laugh_only_segs += laugh_only
         tot_noise_segs += noise
 
     laugh_only_df = pd.DataFrame(tot_laugh_only_segs)
-    invalid_df = pd.DataFrame(tot_invalid_segs )
+    invalid_df = pd.DataFrame(tot_invalid_segs)
     speech_df = pd.DataFrame(tot_speech_segs)
     noise_df = pd.DataFrame(tot_noise_segs)
 
@@ -338,7 +348,7 @@ def main():
 
     print("\n----SPEECH SEGMENTS-----")
     _print_stats(speech_df)
-    
+
     print("\n----LAUGHTER ONLY-----")
     _print_stats(laugh_only_df)
 
@@ -357,4 +367,4 @@ if __name__ == "__main__":
 # EXECUTED ON IMPORT
 #############################################
 # Parse transcripts on import
-parse_transcripts(cfg['transcript_dir'])
+parse_transcripts(cfg["transcript_dir"])

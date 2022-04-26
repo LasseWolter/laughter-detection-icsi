@@ -5,31 +5,34 @@ import os
 import sys
 import librosa
 
-#import compute_features
+# import compute_features
 
 
 def frame_to_time(frame_index):
-    return(frame/100.)
+    return frame / 100.0
 
 
 def seconds_to_frames(s, fps=100):
-    return(int(s*fps))
+    return int(s * fps)
 
 
 def collapse_to_start_and_end_frame(instance_list):
     return (instance_list[0], instance_list[-1])
 
 
-def frame_span_to_time_span(frame_span, fps=100.):
+def frame_span_to_time_span(frame_span, fps=100.0):
     return (frame_span[0] / fps, frame_span[1] / fps)
 
 
 def seconds_to_samples(s, sr):
-    return s*sr
+    return s * sr
 
 
 def format_features(mfcc_feat, delta_feat, index, window_size=37):
-    return np.append(mfcc_feat[index-window_size:index+window_size], delta_feat[index-window_size:index+window_size])
+    return np.append(
+        mfcc_feat[index - window_size : index + window_size],
+        delta_feat[index - window_size : index + window_size],
+    )
 
 
 def cut_laughter_segments(instance_list, y, sr):
@@ -43,45 +46,47 @@ def cut_laughter_segments(instance_list, y, sr):
 
 
 def get_instances_from_rows(rows):
-    return [(float(row.split(' ')[1]), float(row.split(' ')[2])) for row in rows]
+    return [(float(row.split(" ")[1]), float(row.split(" ")[2])) for row in rows]
 
 
 def lowpass(sig, filter_order=2, cutoff=0.01):
     # Set up Butterworth filter
     filter_order = 2
-    B, A = signal.butter(filter_order, cutoff, output='ba')
+    B, A = signal.butter(filter_order, cutoff, output="ba")
 
     # Apply the filter
-    return(signal.filtfilt(B, A, sig))
+    return signal.filtfilt(B, A, sig)
+
 
 def fix_over_underflow(prob):
-    ''' 
+    """
     Fixes probability that is out of the range (0,1) and sets them to
     This seems to be a bug in the code taken from Gillick et al.
     1 or slightly larger than 0 because threshold 0 shouldn't rule them out
 
-    '''
-    if prob > 1: 
-        print('WARN: Fixed probability > 1')
+    """
+    if prob > 1:
+        print("WARN: Fixed probability > 1")
         return 1
     # <= to count also create predictions for threshold=0 when prob is 0
-    if prob <= 0: 
-        print('WARN: Fixed probability <= 0')
+    if prob <= 0:
+        print("WARN: Fixed probability <= 0")
         return 0.0000001
-    else: return prob
-    
+    else:
+        return prob
 
-def get_laughter_instances(probs, thresholds=[0.5], min_lengths=[0.2], fps=100.):
-    '''
-    Calculates laughter instances from passed probabilities. For each of the given settings. 
+
+def get_laughter_instances(probs, thresholds=[0.5], min_lengths=[0.2], fps=100.0):
+    """
+    Calculates laughter instances from passed probabilities. For each of the given settings.
     Settings can be passed using a list of thresholds and a list of min_length values.
-    The function will return a dict of the following format: 
+    The function will return a dict of the following format:
     {
         (threshold, min_length): [laugh_instances],
         (threshold, min_length): [laugh_instances],
         (threshold, min_length): [laugh_instances]
     }
-    '''
+    """
     instance_dict = {}
 
     settings = [(thr, min_l) for thr in thresholds for min_l in min_lengths]
@@ -91,7 +96,7 @@ def get_laughter_instances(probs, thresholds=[0.5], min_lengths=[0.2], fps=100.)
         probs = list(map(fix_over_underflow, probs))
         for i in range(len(probs)):
             # Check if this AND the following frame are laughter
-            if np.min(probs[i:i+1]) > thr:
+            if np.min(probs[i : i + 1]) > thr:
                 current_list.append(i)
             else:
                 if len(current_list) > 0:
@@ -101,15 +106,16 @@ def get_laughter_instances(probs, thresholds=[0.5], min_lengths=[0.2], fps=100.)
         if len(current_list) > 0:
             instances.append(current_list)
         # Reduce each laugh instance to it's start and end-frame
-        instances = [frame_span_to_time_span(
-            collapse_to_start_and_end_frame(i), fps=fps) for i in instances]
-        
+        instances = [
+            frame_span_to_time_span(collapse_to_start_and_end_frame(i), fps=fps)
+            for i in instances
+        ]
+
         # Filter out those instances that don't meet the min_length
-        instances = [inst for inst in instances if inst[1]-inst[0] > min_l]
-        instance_dict[(thr,min_l)]= instances
+        instances = [inst for inst in instances if inst[1] - inst[0] > min_l]
+        instance_dict[(thr, min_l)] = instances
 
     return instance_dict
-
 
 
 def get_feature_list(y, sr, window_size=37):
@@ -121,8 +127,9 @@ def get_feature_list(y, sr, window_size=37):
     padded_delta_feat = np.vstack([zero_pad_delta, delta_feat, zero_pad_delta])
     feature_list = []
     for i in range(window_size, len(mfcc_feat) + window_size):
-        feature_list.append(format_features(
-            padded_mfcc_feat, padded_delta_feat, i, window_size))
+        feature_list.append(
+            format_features(padded_mfcc_feat, padded_delta_feat, i, window_size)
+        )
     feature_list = np.array(feature_list)
     return feature_list
 
@@ -132,8 +139,7 @@ def get_unpadded_feature_list(y, sr, window_size=37):
     delta_feat = compute_features.compute_delta_features(mfcc_feat)
     feature_list = []
     for i in range(window_size, len(mfcc_feat) - window_size):
-        feature_list.append(format_features(
-            mfcc_feat, delta_feat, i, window_size))
+        feature_list.append(format_features(mfcc_feat, delta_feat, i, window_size))
     feature_list = np.array(feature_list)
     return feature_list
 
@@ -143,23 +149,41 @@ def format_outputs(instances, wav_paths=None):
     for i in range(len(instances)):
         if wav_paths is not None:
             outs.append(
-                {'filename': wav_paths[i], 'start': instances[i][0], 'end': instances[i][1]})
+                {
+                    "filename": wav_paths[i],
+                    "start": instances[i][0],
+                    "end": instances[i][1],
+                }
+            )
         else:
-            outs.append({'start': instances[i][0], 'end': instances[i][1]})
+            outs.append({"start": instances[i][0], "end": instances[i][1]})
     return outs
 
 
-def segment_laugh_with_model(model, input_path, threshold=0.5, min_length=0.1,
-                             use_filter=True, audio_start=None, audio_length=None,
-                             avoid_edges=False, edge_gap=0.5):
+def segment_laugh_with_model(
+    model,
+    input_path,
+    threshold=0.5,
+    min_length=0.1,
+    use_filter=True,
+    audio_start=None,
+    audio_length=None,
+    avoid_edges=False,
+    edge_gap=0.5,
+):
     if audio_start is not None and audio_length is not None:
         y, sr = librosa.load(
-            input_path, sr=8000, offset=audio_start-0.37, duration=audio_length+0.74)
+            input_path, sr=8000, offset=audio_start - 0.37, duration=audio_length + 0.74
+        )
         feature_list = get_unpadded_feature_list(y, sr)
     else:
         if avoid_edges:
-            y, sr = librosa.load(input_path, sr=8000, offset=audio_start -
-                                 0.37+edge_gap, duration=audio_length+0.74-2*edge_gap)
+            y, sr = librosa.load(
+                input_path,
+                sr=8000,
+                offset=audio_start - 0.37 + edge_gap,
+                duration=audio_length + 0.74 - 2 * edge_gap,
+            )
             feature_list = get_unpadded_feature_list(y, sr)
         else:
             y, sr = librosa.load(input_path, sr=8000)
@@ -171,21 +195,29 @@ def segment_laugh_with_model(model, input_path, threshold=0.5, min_length=0.1,
     else:
         filtered = probs
     instances = get_laughter_instances(
-        filtered, threshold=threshold, min_length=min_length)
+        filtered, threshold=threshold, min_length=min_length
+    )
     if len(instances) > 0:
-        return(format_outputs(instances))
+        return format_outputs(instances)
     else:
         return []
 
 
-def segment_laughs(input_path, model_path, output_path, threshold=0.5, min_length=0.2, save_to_textgrid=False):
+def segment_laughs(
+    input_path,
+    model_path,
+    output_path,
+    threshold=0.5,
+    min_length=0.2,
+    save_to_textgrid=False,
+):
     print()
-    print('Loading audio file...')
+    print("Loading audio file...")
     y, sr = librosa.load(input_path, sr=8000)
     full_res_y, full_res_sr = librosa.load(input_path, sr=44100)
 
     print()
-    print('Looking for laughter...')
+    print("Looking for laughter...")
     print()
     model = load_model(model_path)
     feature_list = get_feature_list(y, sr)
@@ -194,7 +226,8 @@ def segment_laughs(input_path, model_path, output_path, threshold=0.5, min_lengt
     probs = probs.reshape((len(probs),))  # .reshape((len(mfcc_feat),))
     filtered = lowpass(probs)
     instances = get_laughter_instances(
-        filtered, threshold=threshold, min_length=min_length)
+        filtered, threshold=threshold, min_length=min_length
+    )
 
     if len(instances) > 0:
 
@@ -204,18 +237,18 @@ def segment_laughs(input_path, model_path, output_path, threshold=0.5, min_lengt
         if not save_to_textgrid:
 
             for index, instance in enumerate(instances):
-                laughs = cut_laughter_segments(
-                    [instance], full_res_y, full_res_sr)
+                laughs = cut_laughter_segments([instance], full_res_y, full_res_sr)
                 wav_path = output_path + "/laugh_" + str(index) + ".wav"
                 wav_paths.append(wav_path)
                 scipy.io.wavfile.write(
-                    wav_path, full_res_sr, (laughs * maxv).astype(np.int16))
+                    wav_path, full_res_sr, (laughs * maxv).astype(np.int16)
+                )
 
-            return(format_outputs(instances, wav_paths))
+            return format_outputs(instances, wav_paths)
 
         else:
 
-            return([{'start': i[0], 'end': i[1]} for i in instances])
+            return [{"start": i[0], "end": i[1]} for i in instances]
 
     else:
         return []

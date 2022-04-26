@@ -32,13 +32,13 @@ def append_to_index(index, row, meeting_id, part_id):
     start = utils.to_frames(row["start"])
     end = utils.to_frames(row["end"])
 
-    seg_as_interval = P.openclosed(start,end)
+    seg_as_interval = P.openclosed(start, end)
     # Append to existing intervals or create new dict entry
     if part_id in index[meeting_id].keys():
-        index[meeting_id][part_id] = index[meeting_id][part_id] | seg_as_interval 
+        index[meeting_id][part_id] = index[meeting_id][part_id] | seg_as_interval
     else:
-        index[meeting_id][part_id] = seg_as_interval 
-    
+        index[meeting_id][part_id] = seg_as_interval
+
     seg_len = utils.to_sec(utils.p_len(seg_as_interval))
 
     index[meeting_id]["tot_len"] += seg_len
@@ -162,7 +162,9 @@ def create_silence_index(laugh_index, invalid_index, noise_index, speech_index):
             - get_seg_from_index(noise_index, row.meeting_id, row.part_id)
         )
         silence_index[row.meeting_id][row.part_id] = silence_seg
-        silence_index[row.meeting_id]["tot_length"] = utils.to_sec(utils.p_len(silence_seg))
+        silence_index[row.meeting_id]["tot_length"] = utils.to_sec(
+            utils.p_len(silence_seg)
+        )
 
     return silence_index
 
@@ -170,25 +172,27 @@ def create_silence_index(laugh_index, invalid_index, noise_index, speech_index):
 #############################################
 # EXECUTED ON IMPORT
 #############################################
-'''
+"""
 Load from disk if possible. o/w create indices from scratch
-'''
+"""
 
 cache_file = ".cache/preprocessed_indices.pkl"
-force_recompute = cfg['force_index_recompute']
+force_recompute = cfg["force_index_recompute"]
 
 if not force_recompute and os.path.isfile(cache_file):
-    print('==========================\nLOADING INDICES FROM DISK\nTo recompute set `force_index_recompute=True` in config.py\n')
+    print(
+        "==========================\nLOADING INDICES FROM DISK\nTo recompute set `force_index_recompute=True` in config.py\n"
+    )
     with open(cache_file, "rb") as f:
         mega_index = pickle.load(f)
-    invalid_index = mega_index['invalid']
-    laugh_index = mega_index['laugh']
-    noise_index = mega_index['noise']
-    speech_index = mega_index['speech']
-    silence_index = mega_index['silence']
+    invalid_index = mega_index["invalid"]
+    laugh_index = mega_index["laugh"]
+    noise_index = mega_index["noise"]
+    speech_index = mega_index["speech"]
+    silence_index = mega_index["silence"]
 else:
-    print('Creating indices from transcripts...')
-    print('(this can take a while)')
+    print("Creating indices from transcripts...")
+    print("(this can take a while)")
     # The following indices are dicts that contain segments of a particular type per participant per meeting
     invalid_index = create_index_from_df(parse.invalid_df)
     laugh_index = create_laugh_index(parse.laugh_only_df, invalid_index=invalid_index)
