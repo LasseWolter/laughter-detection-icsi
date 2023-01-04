@@ -49,7 +49,7 @@ def create_manifest(audio_dir, transcripts_dir, output_dir, force_manifest_reloa
     # the sampling rate, number of channels, duration, etc.
     # The SupervisionSet describes metadata about supervision segments:
     # the transcript, speaker, language, and so on.
-    if(os.path.isdir(output_dir) and not force_manifest_reload):
+    if(os.path.isdir(output_dir) and len(os.listdir(output_dir)) != 0 and not force_manifest_reload):
         print("LOADING MANIFEST DIR FROM DISK - not from raw icsi files")
         icsi = {}
         for split in SPLITS:
