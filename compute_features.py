@@ -9,12 +9,7 @@ The dataframe must have the following columns:
 with the following meaning  
 [region start, region duration, subsampled region start, subsampled region duration, audio path, label]
 
-EXAMPLE .env file: 
-    AUDIO_DIR=./data/icsi/speech
-    TRANSCRIPT_DIR=./data/icsi/
-    DATA_DFS_DIR=./data/icsi/data_dfs
-    OUTPUT_DIR=test_output
-    NUM_JOBS=8
+EXAMPLE .env file: 'sample.env' in root dir of the repo
 
 USAGE: python compute_features
 '''

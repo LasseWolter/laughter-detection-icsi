@@ -1,0 +1,9 @@
+lhotse@git+https://github.com/lhotse-speech/lhotse@f1b66b8a8db2ea93e87dcb9db3991f6dd473b89d
+lxml
+pandas
+portion
+pydantic
+python-dotenv
+strenum
+torch
+torchaudio
