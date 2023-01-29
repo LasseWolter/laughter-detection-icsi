@@ -128,6 +128,11 @@ def compute_features_for_cuts(icsi_manifest, data_dfs_dir, output_dir, split_fea
     # Load the channel to id mapping from disk
     # If this changed at some point (which it shouldn't) this file would have to
     # be recreated
+    # HOW TO RECREATE:
+    # * Go to the ICSI-recipe in the lhotse-internal code.
+    # * A dict called "channel_to_idx_map" is generated and used internally.
+    # * You need to temporarily modify this code and write this dict to a .pkl file
+    # WHY?: In Lhotse, channels are integers, so we map channel ids to integers for each session
     # TODO: find a cleaner way to implement this
     chan_map_file = open(os.getenv('CHAN_IDX_MAP_FILE'), 'rb')
     chan_idx_map = pickle.load(chan_map_file)
